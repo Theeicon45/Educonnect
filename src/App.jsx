@@ -1,12 +1,20 @@
-import React from 'react'
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import About from "./Pages/About"
+import Contact from "./Pages/Contact"
+import Landing from "./Pages/Landing"
+import Navbar from './Components/Navbar';
+Navbar
 
 const App = () => {
   return (
-    <div className='text-Red-400'>
-      <h1 className=''> 
-      Hello World
-      </h1>
-    </div>
+    <Router>
+
+    <Routes>
+      <Route path="/" element={<Landing />} />
+      <Route path="/about" element={<About />} />
+      <Route path="/contact" element={<Contact />} />
+    </Routes>
+  </Router>
   )
 }
 
