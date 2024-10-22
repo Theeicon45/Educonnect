@@ -1,3 +1,12 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+#landing-text{
+    font-family: "Arima", system-ui;
+    font-size: 40px;
+   
+}
+#button1{
+    font-family: "Arima", system-ui;
+}

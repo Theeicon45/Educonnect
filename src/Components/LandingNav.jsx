@@ -10,7 +10,7 @@ const LandingNav = () => {
                 
             </div>
              
-             <button className="bg-white h-8 w-36 items-center rounded-full">Login</button>
+             <button className="bg-white h-8* w-36 items-center rounded-full">Login</button>
         </nav>
     </div>
   )
