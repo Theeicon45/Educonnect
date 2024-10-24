@@ -10,3 +10,24 @@
 #button1{
     font-family: "Arima", system-ui;
 }
+
+#Login{
+    font-size: 25px;
+}
+#input-group {
+    display: flex;
+    align-items: center;
+    margin-bottom: 20px;
+    border-bottom: 2px solid #ddd;
+    padding: 10px 0;
+  }
+  #inputsec{
+    
+        width: 100%;
+        border: none;
+        outline: none;
+        padding: 10px;
+        font-size: 16px;
+      
+      
+  }

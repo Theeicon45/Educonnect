@@ -1,5 +1,5 @@
 import { transparentBlack } from "../Utils/images"
-
+import { Link } from 'react-router-dom';
 
 const LandingNav = () => {
   return (
@@ -9,8 +9,10 @@ const LandingNav = () => {
                 <img src={transparentBlack} alt="" className="w-52"/>
                 
             </div>
+             <Link to="/login">
+             <button className="bg-white h-8 w-36 items-center rounded-full hover:bg-slate-200 active:bg-tahiti-800 ease-in">Login</button>
+             </Link>
              
-             <button className="bg-white h-8* w-36 items-center rounded-full">Login</button>
         </nav>
     </div>
   )

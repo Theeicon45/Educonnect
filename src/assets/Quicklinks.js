@@ -1,0 +1,1 @@
+export const quickLinks =["About us ", "Contact Us", "Blog","Location"]
