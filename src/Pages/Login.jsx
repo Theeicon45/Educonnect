@@ -41,7 +41,7 @@ const Login = () => {
       <div className=' bg-gray-100'>
         
         <Link to="/">
-            <button className='bg-tahiti-400 w-36 right-0 absolute -mt-10 rounded-full  '>Back</button>
+            <button className='bg-gray-400 w-36 right-0 absolute -mt-10 rounded-lg active:bg-gray-900 bg-gradient-to-r from-slate-100 to-slate-400'>Back</button>
              </Link>
       </div>
             
