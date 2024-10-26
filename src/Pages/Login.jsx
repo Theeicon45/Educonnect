@@ -1,10 +1,23 @@
-import { FaUser, FaLock } from 'react-icons/fa';
+import { useState } from 'react';
+import { FaUser, FaLock,FaArrowLeft,FaEye, FaEyeSlash } from 'react-icons/fa';
 import { Link } from 'react-router-dom';
+useState
 const Login = () => {
+  
+  const [passwordVisible, setPasswordVisible] = useState(false);
+  
+  const togglePasswordVisibility = () => {
+    setPasswordVisible((prev) => !prev);
+  };
     return (
       <>
         <div className="flex items-center justify-center min-h-screen bg-gray-100">
         <form id="Login-form" className="w-96 p-6 bg-white rounded shadow-md">
+         
+         <Link to="/">
+          <FaArrowLeft className='icon hover:text-tahiti-400 active:text-tahiti-800'/>
+         </Link>
+        
           <h2 id="Login" className="text-center text-2xl  mb-4">Login</h2>
           <div id="input-group" className="flex items-center mb-4">
             <FaUser className="icon mr-2 text-gray-600" />
@@ -20,11 +33,22 @@ const Login = () => {
             <FaLock className="icon mr-2 text-gray-600" />
             <input
               id="inputsec"
-              type="password"
+              type={passwordVisible ? "text" : "password"}
               placeholder="Type your password"
               required
               className="border border-gray-300 p-2 rounded w-full focus:outline-none focus:ring-2 focus:ring-tahiti-500"
             />
+             <button
+            type="button"
+            onClick={togglePasswordVisibility}
+            className="ml-2"
+          >
+            {passwordVisible ? (
+              <FaEyeSlash className="text-gray-600" />
+            ) : (
+              <FaEye className="text-gray-600" />
+            )}
+          </button>
           </div>
           <div className="text-right mb-4">
             <a href="#" className="text-blue-500 hover:underline">Forgot password?</a>
@@ -38,12 +62,7 @@ const Login = () => {
         </form>
         
       </div>
-      <div className=' bg-gray-100'>
-        
-        <Link to="/">
-            <button className='bg-gray-400 w-36 right-0 absolute -mt-10 rounded-lg active:bg-gray-900 bg-gradient-to-r from-slate-100 to-slate-400'>Back</button>
-             </Link>
-      </div>
+      
             
       </>
         
