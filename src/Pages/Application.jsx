@@ -1,20 +1,17 @@
-import  { useState } from 'react';
+import { useEffect,useState } from 'react';
 
 const ApplicationForm = () => {
   const [formData, setFormData] = useState({
-    firstName: '',
-    lastName: '',
+    applicantName: '',
     dateOfBirth: '',
     gender: '',
-    address: '',
-    email: '',
-    phoneNumber: '',
+    gradeLevelApplied: '',
+    guardianName: '',
+    guardianContact: '',
     previousSchool: '',
-    gradeApplyingFor: '',
-    parentName: '',
-    parentEmail: '',
-    parentPhone: '',
-    additionalNotes: '',
+    applicationDate: '',
+    preferredSchool:'',
+    remarks: '',
   });
 
   const handleChange = (e) => {
@@ -22,38 +19,75 @@ const ApplicationForm = () => {
     setFormData({ ...formData, [name]: value });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // Handle form submission (e.g., send data to API)
-    console.log('Submitted data:', formData);
+
+    try {
+      const response = await fetch('http://localhost:3000/api/applications', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
+
+      if (!response.ok) {
+        throw new Error('Network response was not ok');
+      }
+
+      const result = await response.json();
+      console.log('Application submitted successfully:', result);
+      alert("Application submitted successfully!");
+      // Optionally reset the form
+      setFormData({
+        applicantName: '',
+        dateOfBirth: '',
+        gender: '',
+        gradeLevelApplied: '',
+        guardianName: '',
+        guardianContact: '',
+        previousSchool: '',
+        applicationDate: '',
+        preferredSchool: '',
+        remarks: '',
+      });
+    } catch (error) {
+      console.error('Error submitting application:', error);
+      alert("Error submitting application. Please try again.");
+    }
   };
+  const [schools, setSchools] = useState([]); // State for schools
+
+  useEffect(() => {
+    const fetchSchools = async () => {
+      try {
+        const response = await fetch('http://localhost:3000/api/schools');
+        const data = await response.json();
+        console.log('Fetched Schools:', data);
+        setSchools(data); // Set the schools state with the fetched data
+      } catch (error) {
+        console.error('Error fetching schools:', error);
+      }
+    };
+
+    fetchSchools();
+  }, []);
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-gray-100">
       <form onSubmit={handleSubmit} className="w-96 p-6 bg-white rounded shadow-md">
         <h2 className="text-center text-xl font-bold mb-4">Application Form</h2>
 
+        {/* Input fields */}
         <div className="mb-4">
-          <label className="block mb-1">First Name</label>
+          <label className="block mb-1">Applicant Name</label>
           <input
             type="text"
-            name="firstName"
-            value={formData.firstName}
+            name="applicantName"
+            value={formData.applicantName}
             onChange={handleChange}
             required
-            className="border border-gray-300 p-2 rounded w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
-
-        <div className="mb-4">
-          <label className="block mb-1">Last Name</label>
-          <input
-            type="text"
-            name="lastName"
-            value={formData.lastName}
-            onChange={handleChange}
-            required
-            className="border border-gray-300 p-2 rounded w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="border border-gray-300 p-2 rounded w-full focus:outline-none focus:ring-2 focus:ring-cyan-500"
           />
         </div>
 
@@ -65,7 +99,7 @@ const ApplicationForm = () => {
             value={formData.dateOfBirth}
             onChange={handleChange}
             required
-            className="border border-gray-300 p-2 rounded w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="border border-gray-300 p-2 rounded w-full focus:outline-none focus:ring-2 focus:ring-cyan-500"
           />
         </div>
 
@@ -76,7 +110,7 @@ const ApplicationForm = () => {
             value={formData.gender}
             onChange={handleChange}
             required
-            className="border border-gray-300 p-2 rounded w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="border border-gray-300 p-2 rounded w-full focus:outline-none focus:ring-2 focus:ring-cyan-500"
           >
             <option value="">Select Gender</option>
             <option value="Male">Male</option>
@@ -86,37 +120,38 @@ const ApplicationForm = () => {
         </div>
 
         <div className="mb-4">
-          <label className="block mb-1">Address</label>
-          <textarea
-            name="address"
-            value={formData.address}
-            onChange={handleChange}
-            required
-            className="border border-gray-300 p-2 rounded w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
-
-        <div className="mb-4">
-          <label className="block mb-1">Email</label>
+          <label className="block mb-1">Grade Level Applied</label>
           <input
-            type="email"
-            name="email"
-            value={formData.email}
+            type="number"
+            name="gradeLevelApplied"
+            value={formData.gradeLevelApplied}
             onChange={handleChange}
             required
-            className="border border-gray-300 p-2 rounded w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="border border-gray-300 p-2 rounded w-full focus:outline-none focus:ring-2 focus:ring-cyan-500"
           />
         </div>
 
         <div className="mb-4">
-          <label className="block mb-1">Phone Number</label>
+          <label className="block mb-1">Guardian Name</label>
+          <input
+            type="text"
+            name="guardianName"
+            value={formData.guardianName}
+            onChange={handleChange}
+            required
+            className="border border-gray-300 p-2 rounded w-full focus:outline-none focus:ring-2 focus:ring-cyan-500"
+          />
+        </div>
+
+        <div className="mb-4">
+          <label className="block mb-1">Guardian Contact</label>
           <input
             type="tel"
-            name="phoneNumber"
-            value={formData.phoneNumber}
+            name="guardianContact"
+            value={formData.guardianContact}
             onChange={handleChange}
             required
-            className="border border-gray-300 p-2 rounded w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="border border-gray-300 p-2 rounded w-full focus:outline-none focus:ring-2 focus:ring-cyan-500"
           />
         </div>
 
@@ -128,71 +163,54 @@ const ApplicationForm = () => {
             value={formData.previousSchool}
             onChange={handleChange}
             required
-            className="border border-gray-300 p-2 rounded w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="border border-gray-300 p-2 rounded w-full focus:outline-none focus:ring-2 focus:ring-cyan-500"
           />
         </div>
 
         <div className="mb-4">
-          <label className="block mb-1">Grade Applying For</label>
+          <label className="block mb-1">Application Date</label>
           <input
-            type="text"
-            name="gradeApplyingFor"
-            value={formData.gradeApplyingFor}
+            type="date"
+            name="applicationDate"
+            value={formData.applicationDate}
             onChange={handleChange}
             required
-            className="border border-gray-300 p-2 rounded w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="border border-gray-300 p-2 rounded w-full focus:outline-none focus:ring-2 focus:ring-cyan-500"
           />
         </div>
 
         <div className="mb-4">
-          <label className="block mb-1">Parent/Guardian Name</label>
-          <input
-            type="text"
-            name="parentName"
-            value={formData.parentName}
-            onChange={handleChange}
-            required
-            className="border border-gray-300 p-2 rounded w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
-
-        <div className="mb-4">
-          <label className="block mb-1">Parent/Guardian Email</label>
-          <input
-            type="email"
-            name="parentEmail"
-            value={formData.parentEmail}
-            onChange={handleChange}
-            required
-            className="border border-gray-300 p-2 rounded w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
-
-        <div className="mb-4">
-          <label className="block mb-1">Parent/Guardian Phone</label>
-          <input
-            type="tel"
-            name="parentPhone"
-            value={formData.parentPhone}
-            onChange={handleChange}
-            required
-            className="border border-gray-300 p-2 rounded w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
-
-        <div className="mb-4">
-          <label className="block mb-1">Additional Notes</label>
+          <label className="block mb-1">Remarks</label>
           <textarea
-            name="additionalNotes"
-            value={formData.additionalNotes}
+            name="remarks"
+            value={formData.remarks}
             onChange={handleChange}
-            className="border border-gray-300 p-2 rounded w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="border border-gray-300 p-2 rounded w-full focus:outline-none focus:ring-2 focus:ring-cyan-500"
+            placeholder="Any remarks or additional information"
           />
+        </div>
+
+        <div className="mb-4">
+          <label className="block mb-1">Preferred School</label>
+          <select
+            name="preferredSchool"
+            value={formData.preferredSchool}
+            onChange={handleChange}
+            required
+            className="border border-gray-300 p-2 rounded w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="">Select School</option>
+            {schools.map((school) => (
+              <option key={school.School_ID} value={school.School_Name}>
+                {school.School_Name}
+              </option>
+            ))}
+          </select>
         </div>
 
         <button
           type="submit"
-          className="w-full bg-blue-500 text-white p-2 rounded hover:bg-blue-600 transition-colors duration-200"
+          className="w-full bg-tahiti-500 text-white p-2 rounded hover:bg-tahiti-600 transition-colors duration-200"
         >
           Submit Application
         </button>
