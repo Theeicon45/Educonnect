@@ -1,4 +1,6 @@
 import { useEffect,useState } from 'react';
+import { FaArrowLeft, } from 'react-icons/fa';
+import { Link } from 'react-router-dom';
 
 const ApplicationForm = () => {
   const [formData, setFormData] = useState({
@@ -76,6 +78,9 @@ const ApplicationForm = () => {
   return (
     <div className="flex items-center justify-center min-h-screen bg-gray-100">
       <form onSubmit={handleSubmit} className="w-96 p-6 bg-white rounded shadow-md">
+        <Link to="/">
+          <FaArrowLeft className='icon hover:text-tahiti-400 active:text-tahiti-800'/>
+        </Link>
         <h2 className="text-center text-xl font-bold mb-4">Application Form</h2>
 
         {/* Input fields */}

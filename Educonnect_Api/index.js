@@ -55,6 +55,27 @@ app.get('/api/applications', (req, res) => {
         res.json(results);
     });
 });
+// Endpoint to handle login
+app.post('/api/login', (req, res) => {
+    const { username, password } = req.body;
+
+    const sql = 'SELECT * FROM user_credentials WHERE Username = ? AND password_Hash = ?';
+    db.query(sql, [username, password], (err, results) => {
+        if (err) {
+            return res.status(500).json({ message: 'Database error', error: err.message });
+        }
+        
+        if (results.length === 0) {
+            return res.status(401).json({ message: 'Invalid credentials' });
+        }
+
+        // Extract the user role
+        const user = results[0];
+        console.log("User role from database:", user.Role);
+        res.status(200).json({ role: user.Role });
+    });
+});
+
 
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
