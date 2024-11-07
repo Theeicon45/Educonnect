@@ -5,6 +5,7 @@ import LibraryPic from"/Images/Library.jpg";
 import swimmingPic from "/Images/Swimmingpool.jpg";
 import chillPic from "/Images/Chillspot.jpg";
 import inPic from "/Images/Inside.jpg";
+import blacIcon from '/Images/favicon-black.png'
 
 
 
@@ -18,7 +19,7 @@ import inPic from "/Images/Inside.jpg";
 
 
 
-
+export const IconBlack=blacIcon;
 export const transparentBlack = blackT;
 export const transparentWhite = whiteT;
 export const front =frontPic;
