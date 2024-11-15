@@ -31,7 +31,7 @@ const Sidepannel = () => {
   
 
   return (
-    <div className="flex">
+    <div className="flex ">
       {/* Sidebar Container */}
       <div
         onMouseEnter={handleMouseEnter}
@@ -42,13 +42,13 @@ const Sidepannel = () => {
         style={{ zIndex: '10', marginRight: isExpanded ? '10px' : '0' }}
       >
         {/* Logo and Title */}
-        <div className={`flex items-center mb-8 ${isExpanded ? 'justify-start' : 'justify-center'}`}>
+        <div className={`flex items-center mb-8  ${isExpanded ? 'justify-start' : 'justify-center'}`}>
           <img src={IconBlack} alt="Educonnect Logo" className="w-10 h-10" />
           {isExpanded && <p className="text-cyan-400 text-xl ml-2">Educonnect</p>}
         </div>
 
         {/* Navigation Links with Hidden Scrollbar */}
-        <div className="scrollable flex flex-col overflow-y-auto bg-scroll gap-6 h-full">
+        <div className="scrollable flex flex-col overflow-y-auto bg-scroll gap-6 h-full p-4">
           <Link to="/DashboardOverview" className="flex items-center gap-4">
             <FaTachometerAlt className="text-xl" />
             {isExpanded && <span>Dashboard <br />Overview</span>}
@@ -92,7 +92,7 @@ const Sidepannel = () => {
         </div>
 
         {/* Logout Button */}
-        <button onClick={handleLogout } className="mt-4 flex items-center gap-4 text-red-500">
+        <button onClick={handleLogout } className="mt-4 flex items-center gap-4 text-Red-500 p-4">
           <MdLogout className="text-xl" />
           {isExpanded && <span>Logout</span>}
         </button>
@@ -111,7 +111,7 @@ const Sidepannel = () => {
       {/* Main Content Area */}
       <div
         className={`transition-all duration-300 ease-in-out`}
-        style={{ marginLeft: isExpanded ? '200px' : '16px', paddingRight: '10px' }}
+        style={{ marginLeft: isExpanded ? '200px' : '70px', paddingRight: '10px' }}
       >
         {/* Content here dynamically adjusts based on sidebar's state */}
        
