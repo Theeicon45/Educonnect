@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
-import AdminLayout from "../Components/AdminLayout"
+import AdminLayout from "../Components/AdminLayout";
+
 const AdminPage = () => {
   useEffect(() => {
     window.history.pushState(null, '', window.location.href);
