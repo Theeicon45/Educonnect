@@ -10,6 +10,7 @@ import man from '/Images/manavatar.png';
 import woman from '/Images/womanavatar.png';
 import notification from '/Images/notification.png';
 import message from '/Images/message.png';
+import moreIcon from '/Images/more.png';
 
 
 
@@ -35,3 +36,4 @@ export const manavatar =man;
 export const womanavatar =woman;
 export const notifocations =notification;
 export const messages =message;
+export const more =moreIcon;

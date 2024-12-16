@@ -6,7 +6,7 @@ const AdminLayout = () => {
   return (
     <div className="flex ">
       <Sidepannel/>
-      <div className="flex-grow p-6 bg-cyan-200 " >
+      <div className="flex-grow p-6 bg-gray-50 " >
       <Layout/>
       <Outlet />
       
