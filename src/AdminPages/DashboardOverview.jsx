@@ -1,4 +1,6 @@
 import CountChart from "../Components/CountChart";
+import FinanceChart from "../Components/FinanceChart";
+import PerformanceSc from "../Components/PerformanceSc";
 import Usercards from "../Components/Usercards";
 
 
@@ -24,10 +26,14 @@ const DashboardOverview = () => {
           <CountChart/>
           </div>
           {/* PERFORMANCE */}
-          <div className="w-full lg:w-2/3 h-[450px]"></div>
+          <div className="w-full lg:w-2/3 h-[450px]">
+          <PerformanceSc/>
+          </div>
         </div>
         {/* BOTTOM CHARTS */}
-        <div className=""></div>
+        <div className="w-full h-[500px]">
+          <FinanceChart/>
+        </div>
 
     </div>
     {/* Right */}

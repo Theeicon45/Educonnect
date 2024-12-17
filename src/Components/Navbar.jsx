@@ -91,7 +91,7 @@ const Navbar = () => {
         </div>
         <div className='bg-white rounded-full w-7 h-7 flex items-center justify-center cursor-pointer relative'>
           <img src={notifocations} alt="" width={16} height={16} />
-          <div className='absolute -top-3 -right-3 w-5 h-5 flex items-center justify-center bg-Red-600 rounded-full'>1</div>
+          <div className='absolute -top-3 -right-3 w-5 h-5 flex items-center justify-center bg-cyan-300 rounded-full'>1</div>
         </div>
         <div className='bg-white rounded-full w-7 h-7 flex items-center justify-center cursor-pointer'>
           <img src={manavatar} alt="" width={24} height={24} />
