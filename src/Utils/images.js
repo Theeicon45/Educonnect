@@ -11,6 +11,7 @@ import woman from '/Images/womanavatar.png';
 import notification from '/Images/notification.png';
 import message from '/Images/message.png';
 import moreIcon from '/Images/more.png';
+import moreDarkIcon from '/Images/moreDark.png';
 
 
 
@@ -37,3 +38,4 @@ export const womanavatar =woman;
 export const notifocations =notification;
 export const messages =message;
 export const more =moreIcon;
+export const moredark =moreDarkIcon;

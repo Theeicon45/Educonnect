@@ -32,7 +32,7 @@ const Login = () => {
 
         // Redirect based on role
         if (role.toLowerCase() === 'admin') {
-          navigate('/adminpage');
+          navigate('/DashboardOverview');
       } else if (role.toLowerCase() === 'teacher') {
           navigate('/teacherspage');
       } else if (role.toLowerCase() === 'student') {
