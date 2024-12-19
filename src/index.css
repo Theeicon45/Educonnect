@@ -31,3 +31,15 @@
       
       
   }
+  .react-calendar{
+    width: 100% !important;
+    border: none !important;
+    font-family: 'inter',sans-serif !important;
+  }
+  .react-calendar__tile--active{
+    background-color: #67e8f9 !important ;
+    color: black;
+  }
+  .react-calendar__navigation__label{
+    font-weight: 600;
+  }

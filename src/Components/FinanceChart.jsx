@@ -101,7 +101,9 @@ const FinanceChart = () => {
           <CartesianGrid strokeDasharray="3 3" vertical={false}/>
           <XAxis dataKey="name"  axisLine={false} tickLine={false} tickMargin={10}/>
           <YAxis  axisLine={false} tickLine={false} tickMargin={10}/>
-          <Tooltip />
+          <Tooltip
+            contentStyle={{ borderRadius: "10px", borderColor: "lightgray" }}
+          />
           <Legend  align='center' verticalAlign='top' wrapperStyle={{paddingTop:'10px', paddingBottom:'30px'}}/>
           <Line type="monotone" dataKey="Expense" stroke="#8884d8" strokeWidth={3}/>
           <Line type="monotone" dataKey="Income" stroke="#82ca9d" strokeWidth={3} />

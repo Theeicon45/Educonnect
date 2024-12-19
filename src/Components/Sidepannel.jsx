@@ -48,51 +48,51 @@ const Sidepannel = () => {
         </div>
 
         {/* Navigation Links with Hidden Scrollbar */}
-        <div className="scrollable flex flex-col overflow-y-auto bg-scroll gap-6 h-full p-4">
-          <Link to="/DashboardOverview" className="flex items-center gap-4">
+        <div className="scrollable flex flex-col overflow-y-auto bg-scroll gap-6 h-full pl-2 ">
+          <Link to="/DashboardOverview" className="flex items-center gap-4 hover:bg-tahiti-100 rounded-md w-full">
             <FaTachometerAlt className="text-xl" />
             {isExpanded && <span>Dashboard <br />Overview</span>}
           </Link>
-          <Link to="/AdmissionManagement" className="flex items-center gap-4">
+          <Link to="/AdmissionManagement" className="flex items-center gap-4 hover:bg-tahiti-100 rounded-md w-full">
             <MdSchool className="text-xl" />
             {isExpanded && <span>Admission  <br/> Management</span>}
           </Link>
-          <Link to="/StudentManagement" className="flex items-center gap-4">
+          <Link to="/StudentManagement" className="flex items-center gap-4 hover:bg-tahiti-100 rounded-md w-full">
             <FaUserGraduate className="text-xl" />
             {isExpanded && <span>Student <br/>  Management</span>}
           </Link>
-          <Link to="/StaffManagement" className="flex items-center gap-4">
+          <Link to="/StaffManagement" className="flex items-center gap-4 hover:bg-tahiti-100 rounded-md w-full">
             <FaChalkboardTeacher className="text-xl" />
             {isExpanded && <span>Staff  <br/> Management</span>}
           </Link>
-          <Link to="/FinanceManagement" className="flex items-center gap-4">
+          <Link to="/FinanceManagement" className="flex items-center gap-4 hover:bg-tahiti-100 rounded-md w-full">
             <FaMoneyBillWave className="text-xl" />
             {isExpanded && <span>Finance <br/>  Management</span>}
           </Link>
-          <Link to="/CommunicationCenter" className="flex items-center gap-4">
+          <Link to="/CommunicationCenter" className="flex items-center gap-4 hover:bg-tahiti-100 rounded-md w-full">
             <FaCommentDots className="text-xl" />
             {isExpanded && <span>Communication  <br/> Center</span>}
           </Link>
-          <Link to="/ReportAnalytics" className="flex items-center gap-4">
+          <Link to="/ReportAnalytics" className="flex items-center gap-4 hover:bg-tahiti-100 rounded-md w-full">
             <FaChartBar className="text-xl" />
             {isExpanded && <span>Report  <br/> Analytics</span>}
           </Link>
-          <Link to="/ResourceSharing" className="flex items-center gap-4">
+          <Link to="/ResourceSharing" className="flex items-center gap-4 hover:bg-tahiti-100 rounded-md w-full">
             <FaFolderOpen className="text-xl" />
             {isExpanded && <span>Resource  <br/> Sharing</span>}
           </Link>
-          <Link to="/HelpCenter" className="flex items-center gap-4">
+          <Link to="/HelpCenter" className="flex items-center gap-4 hover:bg-tahiti-100 rounded-md w-full">
             <AiOutlineInfoCircle className="text-xl" />
             {isExpanded && <span>Help  <br/> Center</span>}
           </Link>
-          <Link to="/Settings" className="flex items-center gap-4">
+          <Link to="/Settings" className="flex items-center gap-4 hover:bg-tahiti-100 rounded-md w-full">
             <FaCog className="text-xl" />
             {isExpanded && <span>Settings</span>}
           </Link>
         </div>
 
         {/* Logout Button */}
-        <button onClick={handleLogout } className="mt-4 flex items-center gap-4 text-Red-500 p-4">
+        <button onClick={handleLogout } className="mt-4 flex items-center gap-4 text-Red-500 p-4 hover:bg-Orange-100">
           <MdLogout className="text-xl" />
           {isExpanded && <span>Logout</span>}
         </button>
