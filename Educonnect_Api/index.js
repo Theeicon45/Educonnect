@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import db from './dbConfig.js';
+import connection from './dbConfig.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -76,7 +77,30 @@ app.post('/api/login', (req, res) => {
     });
 });
 
-
+// API Endpoint to get applications
+app.get('/api/applications', (req, res) => {
+    const sql = 'SELECT * FROM application';
+    connection.query(sql, (err, results) => {
+      if (err) {
+        return res.status(500).json({ error: 'Error fetching applications' });
+      }
+      res.json(results); // Send the results back as JSON
+    });
+  });
+  
+  // API Endpoint to update status
+  app.post('/api/updateStatus/:id', (req, res) => {
+    const { id } = req.params;
+    const { status } = req.body; // Status can be 'Accepted' or 'Denied'
+  
+    const sql = 'UPDATE application SET Status = ? WHERE id = ?';
+    connection.query(sql, [status, id], (err, result) => {
+      if (err) {
+        return res.status(500).json({ error: 'Error updating status' });
+      }
+      res.json({ message: 'Status updated successfully' });
+    });
+  });
 
 
 
