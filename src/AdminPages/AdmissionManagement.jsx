@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import  { useEffect, useState } from 'react';
 import { Table, Button, message } from 'antd';
 
 const AdmissionManagement = () => {
@@ -41,7 +41,6 @@ const AdmissionManagement = () => {
   }, []);
 
   const handleStatusChange = (key, newStatus) => {
-    // Update status in the backend
     fetch(`http://localhost:3000/api/updateStatus/${key}`, {
       method: 'POST',
       headers: {
@@ -51,19 +50,24 @@ const AdmissionManagement = () => {
     })
       .then((response) => response.json())
       .then((data) => {
-        // Update the frontend data
-        const updatedData = dataSource.map((item) =>
-          item.key === key ? { ...item, status: newStatus } : item
-        );
-        setDataSource(updatedData);
-        message.success('Status updated successfully!');
+        if (data.message) {
+          // Update the status in the frontend
+          const updatedData = dataSource.map((item) =>
+            item.key === key ? { ...item, status: newStatus } : item
+          );
+          setDataSource(updatedData);
+  
+          message.success(data.message);
+        } else {
+          message.error('An error occurred');
+        }
       })
       .catch((error) => {
-        console.error('Error updating status:', error);
+        console.error('Error:', error);
         message.error('Failed to update status');
       });
   };
-
+  
   const columns = [
     {
       title: 'Applicant Name',
@@ -91,16 +95,18 @@ const AdmissionManagement = () => {
       render: (text, record) => (
         <span>
           {text}
-          <Button 
-            type="primary" 
+          <Button
+            type="primary"
             onClick={() => handleStatusChange(record.key, 'Accepted')}
+            disabled={text === 'Accepted' || text === 'Denied'}
             style={{ marginLeft: 8 }}
           >
             Accept
           </Button>
-          <Button 
-            type="danger" 
+          <Button
+            type="danger"
             onClick={() => handleStatusChange(record.key, 'Denied')}
+            disabled={text === 'Accepted' || text === 'Denied'}
             style={{ marginLeft: 8 }}
           >
             Deny
@@ -109,10 +115,11 @@ const AdmissionManagement = () => {
       ),
     },
   ];
+  
 
   return (
     <div>
-      <h1>Admission Management</h1>
+      <h1 className='text-2xl font-semibold '>Admission Management</h1>
       <Table 
         columns={columns}
         dataSource={dataSource}

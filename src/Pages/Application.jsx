@@ -1,19 +1,19 @@
-import { useEffect,useState } from 'react';
-import { FaArrowLeft, } from 'react-icons/fa';
-import { Link } from 'react-router-dom';
+import { useEffect, useState } from "react";
+import { FaArrowLeft } from "react-icons/fa";
+import { Link } from "react-router-dom";
 
 const ApplicationForm = () => {
   const [formData, setFormData] = useState({
-    applicantName: '',
-    dateOfBirth: '',
-    gender: '',
-    gradeLevelApplied: '',
-    guardianName: '',
-    guardianContact: '',
-    previousSchool: '',
-    applicationDate: '',
-    preferredSchool:'',
-    remarks: '',
+    applicantName: "",
+    dateOfBirth: "",
+    gender: "",
+    gradeLevelApplied: "",
+    guardianName: "",
+    guardianContact: "",
+    previousSchool: "",
+    applicationDate: "",
+    preferredSchool: "",
+    remarks: "",
   });
 
   const handleChange = (e) => {
@@ -25,36 +25,36 @@ const ApplicationForm = () => {
     e.preventDefault();
 
     try {
-      const response = await fetch('http://localhost:3000/api/applications', {
-        method: 'POST',
+      const response = await fetch("http://localhost:3000/api/applications", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify(formData),
       });
 
       if (!response.ok) {
-        throw new Error('Network response was not ok');
+        throw new Error("Network response was not ok");
       }
 
       const result = await response.json();
-      console.log('Application submitted successfully:', result);
+      console.log("Application submitted successfully:", result);
       alert("Application submitted successfully!");
       // Optionally reset the form
       setFormData({
-        applicantName: '',
-        dateOfBirth: '',
-        gender: '',
-        gradeLevelApplied: '',
-        guardianName: '',
-        guardianContact: '',
-        previousSchool: '',
-        applicationDate: '',
-        preferredSchool: '',
-        remarks: '',
+        applicantName: "",
+        dateOfBirth: "",
+        gender: "",
+        gradeLevelApplied: "",
+        guardianName: "",
+        guardianContact: "",
+        previousSchool: "",
+        applicationDate: "",
+        preferredSchool: "",
+        remarks: "",
       });
     } catch (error) {
-      console.error('Error submitting application:', error);
+      console.error("Error submitting application:", error);
       alert("Error submitting application. Please try again.");
     }
   };
@@ -63,12 +63,12 @@ const ApplicationForm = () => {
   useEffect(() => {
     const fetchSchools = async () => {
       try {
-        const response = await fetch('http://localhost:3000/api/schools');
+        const response = await fetch("http://localhost:3000/api/schools");
         const data = await response.json();
-        console.log('Fetched Schools:', data);
+        console.log("Fetched Schools:", data);
         setSchools(data); // Set the schools state with the fetched data
       } catch (error) {
-        console.error('Error fetching schools:', error);
+        console.error("Error fetching schools:", error);
       }
     };
 
@@ -77,9 +77,12 @@ const ApplicationForm = () => {
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-gray-100">
-      <form onSubmit={handleSubmit} className="w-96 p-6 bg-white rounded shadow-md">
+      <form
+        onSubmit={handleSubmit}
+        className="w-96 p-6 bg-white rounded shadow-md"
+      >
         <Link to="/">
-          <FaArrowLeft className='icon hover:text-tahiti-400 active:text-tahiti-800'/>
+          <FaArrowLeft className="icon hover:text-tahiti-400 active:text-tahiti-800" />
         </Link>
         <h2 className="text-center text-xl font-bold mb-4">Application Form</h2>
 
@@ -132,6 +135,8 @@ const ApplicationForm = () => {
             value={formData.gradeLevelApplied}
             onChange={handleChange}
             required
+            min="1"
+            max="12"
             className="border border-gray-300 p-2 rounded w-full focus:outline-none focus:ring-2 focus:ring-cyan-500"
           />
         </div>
