@@ -11,30 +11,47 @@ app.use(express.json()); // use express.json() instead of bodyParser.json()
 
 // Endpoint to create a new application record
 app.post('/api/applications', (req, res) => {
-    const { 
-        applicantName, 
-        dateOfBirth, 
-        gender, 
-        gradeLevelApplied, 
-        guardianName, 
-        guardianContact, 
-        previousSchool, 
-        applicationDate, 
-        preferredSchool,
-        remarks 
-    } = req.body;
+  const { 
+      applicantName, 
+      dateOfBirth, 
+      gender, 
+      gradeLevelApplied, 
+      guardianName, 
+      guardianContact, 
+      previousSchool, 
+      applicationDate, 
+      preferredSchool,  // School name
+      remarks 
+  } = req.body;
 
-    const sql = 'INSERT INTO application (Applicant_Name, Date_of_Birth, Gender, Grade_Level_Applied, Guardian_Name, Guardian_Contact, Previous_School, Application_Date, Preferred_School, Remarks) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
+  // Query to get School_ID based on the preferred school name
+  const schoolQuery = 'SELECT School_ID FROM school WHERE School_Name = ?';
 
+  db.query(schoolQuery, [preferredSchool], (err, schoolResult) => {
+      if (err) {
+          console.error('Error fetching school ID:', err);
+          return res.status(500).json({ message: 'Error fetching school ID', error: err.message });
+      }
 
-    db.query(sql, [applicantName, dateOfBirth, gender, gradeLevelApplied, guardianName, guardianContact, previousSchool, applicationDate, preferredSchool, remarks], (err, result) => {
-        if (err) {
-            console.error('Database insertion error:', err);
-            return res.status(500).json({ message: 'Error submitting application', error: err.message });
-        }
-        res.status(201).json({ id: result.insertId, message: 'Application submitted successfully' });
-    });
+      if (schoolResult.length === 0) {
+          return res.status(404).json({ message: 'Preferred school not found' });
+      }
+
+      const schoolID = schoolResult[0].School_ID;
+
+      // Now insert the application with the School_ID
+      const sql = 'INSERT INTO application (Applicant_Name, Date_of_Birth, Gender, Grade_Level_Applied, Guardian_Name, Guardian_Contact, Previous_School, Application_Date, Preferred_School, Remarks, School_ID) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
+
+      db.query(sql, [applicantName, dateOfBirth, gender, gradeLevelApplied, guardianName, guardianContact, previousSchool, applicationDate, preferredSchool, remarks, schoolID], (err, result) => {
+          if (err) {
+              console.error('Database insertion error:', err);
+              return res.status(500).json({ message: 'Error submitting application', error: err.message });
+          }
+          res.status(201).json({ id: result.insertId, message: 'Application submitted successfully' });
+      });
+  });
 });
+
 
 app.get('/api/schools', (req, res) => {
     const sql = 'SELECT * FROM school'; // Adjust the table name as necessary
@@ -106,68 +123,135 @@ app.post('/api/login', (req, res) => {
 app.post('/api/updateStatus/:id', (req, res) => {
     const { id } = req.params;
     const { status } = req.body;
-  
-    const updateStatusSQL = 'UPDATE application SET Status = ? WHERE Application_ID = ?';
-  
-    connection.query(updateStatusSQL, [status, id], (err, result) => {
-      if (err) {
-        console.error('Error updating status:', err);
-        return res.status(500).json({ error: 'Error updating status', details: err.message });
-      }
-  
-      if (status === 'Accepted') {
-        // Fetch application details for the accepted student
-        const fetchApplicationSQL = 'SELECT * FROM application WHERE Application_ID = ?';
-        connection.query(fetchApplicationSQL, [id], (err, applicationResult) => {
-          if (err) {
-            console.error('Error fetching application details:', err);
-            return res.status(500).json({ error: 'Error fetching application details', details: err.message });
-          }
-  
-          if (applicationResult.length > 0) {
-            const application = applicationResult[0];
-            const {
-              Application_ID: studentID,
-              Applicant_Name: fullName,
-              Grade_Level_Applied: yearLevel,
-              Preferred_School: schoolID,
-              Guardian_Name: guardianName,
-              Guardian_Contact: guardianContact,
-            } = application;
-  
-            // Insert into `student_record`
-            const insertStudentSQL = `
-              INSERT INTO student_record 
-              (Student_ID, School_ID, Full_Name, Enrollment_Year, Year_Level, Term_Average_Grade, Guardian_ID, Status)
-              VALUES (?, ?, ?, YEAR(CURDATE()), ?, 'N/A', ?, 'Active')
-            `;
-  
-            const guardianID = Math.floor(Math.random() * 100000); // Generate a mock guardian ID
-  
-            connection.query(
-              insertStudentSQL,
-              [studentID, schoolID, fullName, yearLevel, guardianID],
-              (err, studentInsertResult) => {
+
+    const updateStatusSQL = `
+        UPDATE application 
+        SET Status = ?, 
+            Admission_Date = CASE WHEN ? = 'Accepted' THEN CURDATE() ELSE NULL END 
+        WHERE Application_ID = ?
+    `;
+
+    connection.query(updateStatusSQL, [status, status, id], (err, result) => {
+        if (err) {
+            console.error('Error updating status and admission date:', err);
+            return res.status(500).json({ error: 'Error updating status and admission date', details: err.message });
+        }
+
+        if (status === 'Accepted') {
+            // Fetch application details for the accepted student, including the School_ID
+            const fetchApplicationSQL = 'SELECT * FROM application WHERE Application_ID = ?';
+            connection.query(fetchApplicationSQL, [id], (err, applicationResult) => {
                 if (err) {
-                  console.error('Error inserting into student_record:', err);
-                  return res.status(500).json({ error: 'Error inserting into student_record', details: err.message });
+                    console.error('Error fetching application details:', err);
+                    return res.status(500).json({ error: 'Error fetching application details', details: err.message });
                 }
+
+                if (applicationResult.length > 0) {
+                    const application = applicationResult[0];
+                    const {
+                        Application_ID: studentID,
+                        Applicant_Name: fullName,
+                        Grade_Level_Applied: yearLevel,
+                        Preferred_School: schoolName,
+                        Guardian_Name: guardianName,
+                        Guardian_Contact: guardianContact,
+                    } = application;
+
+                    // Get the School_ID from the Preferred_School (schoolName)
+                    const getSchoolIDSQL = 'SELECT School_ID FROM school WHERE School_Name = ?';
+                    connection.query(getSchoolIDSQL, [schoolName], (err, schoolResult) => {
+                        if (err) {
+                            console.error('Error fetching school details:', err);
+                            return res.status(500).json({ error: 'Error fetching school details', details: err.message });
+                        }
+
+                        if (schoolResult.length > 0) {
+                            const schoolID = schoolResult[0].School_ID;
+
+                            // Insert into `student_record`
+                            const insertStudentSQL = `
+                                INSERT INTO student_record 
+                                (Student_ID, School_ID, Full_Name, Enrollment_Year, Year_Level, Term_Average_Grade, Guardian_ID, Status)
+                                VALUES (?, ?, ?, YEAR(CURDATE()), ?, 'N/A', ?, 'Active')
+                            `;
+
+                            const guardianID = Math.floor(Math.random() * 100000); // Generate a mock guardian ID
+
+                            connection.query(
+                                insertStudentSQL,
+                                [studentID, schoolID, fullName, yearLevel, guardianID],
+                                (err, studentInsertResult) => {
+                                    if (err) {
+                                        console.error('Error inserting into student_record:', err);
+                                        return res.status(500).json({ error: 'Error inserting into student_record', details: err.message });
+                                    }
+
+                                    console.log('Student record created successfully:', studentInsertResult);
+                                    res.json({ message: 'Status updated, admission date set, and student record created successfully' });
+                                }
+                            );
+                        } else {
+                            console.error('School not found for name:', schoolName);
+                            return res.status(404).json({ error: 'School not found' });
+                        }
+                    });
+                } else {
+                    console.error('Application not found for ID:', id);
+                    res.status(404).json({ error: 'Application not found' });
+                }
+            });
+        } else {
+            console.log('Status updated successfully for ID:', id);
+            res.json({ message: 'Status updated successfully' });
+        }
+    });
+});
+
+
+  ///////////////////////////////////////////student management/////////////////////////
+  app.get('/api/students', (req, res) => {
+    const { search = '' } = req.query;
   
-                console.log('Student record created successfully:', studentInsertResult);
-                res.json({ message: 'Status updated and student record created successfully' });
-              }
-            );
-          } else {
-            console.error('Application not found for ID:', id);
-            res.status(404).json({ error: 'Application not found' });
-          }
-        });
-      } else {
-        console.log('Status updated successfully for ID:', id);
-        res.json({ message: 'Status updated successfully' });
+    const query = `
+      SELECT * 
+      FROM student_record 
+      WHERE Full_Name LIKE ? 
+      ORDER BY Full_Name ASC;
+    `;
+  
+    connection.query(query, [`%${search}%`], (err, rows) => {
+      if (err) {
+        console.error(err);
+        return res.status(500).json({ error: 'Failed to fetch students' });
       }
+  
+      res.json(rows);
     });
   });
+  
+  // Endpoint to update student record
+app.put('/api/students/:id', (req, res) => {
+  const { id } = req.params;
+  const { Full_Name, Enrollment_Year, Year_Level, Status } = req.body;
+
+  const sql = `
+    UPDATE student_record 
+    SET Full_Name = ?, Enrollment_Year = ?, Year_Level = ?, Status = ?
+    WHERE Student_Record_ID = ?
+  `;
+
+  connection.query(sql, [Full_Name, Enrollment_Year, Year_Level, Status, id], (err, result) => {
+    if (err) {
+      console.error('Error updating student:', err);
+      return res.status(500).json({ error: 'Failed to update student' });
+    }
+
+    res.status(200).json({ message: 'Student updated successfully' });
+  });
+});
+
+  
+  
   
   
 
