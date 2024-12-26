@@ -13,6 +13,7 @@ import message from '/Images/message.png';
 import moreIcon from '/Images/more.png';
 import moreDarkIcon from '/Images/moreDark.png';
 import playing from '/Images/playing.png';
+import usericon from '/Images/User.png';
 
 
 
@@ -41,3 +42,4 @@ export const messages =message;
 export const more =moreIcon;
 export const moredark =moreDarkIcon;
 export const boygirl =playing;
+export const User =usericon;
