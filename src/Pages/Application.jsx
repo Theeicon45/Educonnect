@@ -5,6 +5,7 @@ import { Link } from "react-router-dom";
 const ApplicationForm = () => {
   const [formData, setFormData] = useState({
     applicantName: "",
+    secondName: "",
     dateOfBirth: "",
     gender: "",
     gradeLevelApplied: "",
@@ -43,6 +44,7 @@ const ApplicationForm = () => {
       // Optionally reset the form
       setFormData({
         applicantName: "",
+        secondName: "",
         dateOfBirth: "",
         gender: "",
         gradeLevelApplied: "",
@@ -93,6 +95,17 @@ const ApplicationForm = () => {
             type="text"
             name="applicantName"
             value={formData.applicantName}
+            onChange={handleChange}
+            required
+            className="border border-gray-300 p-2 rounded w-full focus:outline-none focus:ring-2 focus:ring-cyan-500"
+          />
+        </div>
+        <div className="mb-4">
+          <label className="block mb-1">Second Name</label>
+          <input
+            type="text"
+            name="secondName"
+            value={formData.secondName}
             onChange={handleChange}
             required
             className="border border-gray-300 p-2 rounded w-full focus:outline-none focus:ring-2 focus:ring-cyan-500"

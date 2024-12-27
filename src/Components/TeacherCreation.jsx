@@ -1,17 +1,39 @@
-import React from "react";
+import  { useEffect, useState } from "react";
 import { Modal, Form, Input, Select, message } from "antd";
 
 const { Option } = Select;
 
 const TeacherCreation = ({ visible, onClose }) => {
   const [form] = Form.useForm();
+  const [schools, setSchools] = useState([]);
+
+  useEffect(() => {
+    // Fetch schools when the modal is opened
+    if (visible) {
+      fetch("http://localhost:3000/api/schools")
+        .then((response) => response.json())
+        .then((data) => setSchools(data))
+        .catch((error) => {
+          console.error("Error fetching schools:", error);
+          message.error("Failed to fetch schools.");
+        });
+    }
+  }, [visible]);
 
   const handleSubmit = async (values) => {
     try {
+      const selectedSchool = schools.find(
+        (school) => school.School_Name === values.School_Name
+      );
+      const payload = {
+        ...values,
+        School_ID: selectedSchool.School_ID, // Map selected school name to its ID
+      };
+
       const response = await fetch("http://localhost:3000/api/teachers", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(values),
+        body: JSON.stringify(payload),
       });
 
       if (response.ok) {
@@ -33,19 +55,15 @@ const TeacherCreation = ({ visible, onClose }) => {
       visible={visible}
       onCancel={onClose}
       onOk={() => {
-        form.validateFields().then(handleSubmit).catch((info) => {
-          message.error("Validation failed");
-        });
+        form
+          .validateFields()
+          .then(handleSubmit)
+          .catch((info) => {
+            message.error("Validation failed.");
+          });
       }}
     >
       <Form form={form} layout="vertical">
-        <Form.Item
-          name="Teacher_ID"
-          label="Teacher ID"
-          rules={[{ required: true, message: "Teacher ID is required" }]}
-        >
-          <Input />
-        </Form.Item>
         <Form.Item
           name="First_Name"
           label="First Name"
@@ -82,11 +100,17 @@ const TeacherCreation = ({ visible, onClose }) => {
           <Input />
         </Form.Item>
         <Form.Item
-          name="School_ID"
-          label="School ID"
-          rules={[{ required: true, message: "School ID is required" }]}
+          name="School_Name"
+          label="School"
+          rules={[{ required: true, message: "Please select a school" }]}
         >
-          <Input />
+          <Select placeholder="Select a school">
+            {schools.map((school) => (
+              <Option key={school.School_ID} value={school.School_Name}>
+                {school.School_Name}
+              </Option>
+            ))}
+          </Select>
         </Form.Item>
         <Form.Item
           name="Employment_Status"

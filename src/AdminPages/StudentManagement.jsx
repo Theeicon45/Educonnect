@@ -45,9 +45,14 @@ const StudentManagement = () => {
 
   const columns = [
     {
-      title: 'Full Name',
-      dataIndex: 'Full_Name',
-      key: 'Full_Name',
+      title: 'First Name',
+      dataIndex: 'First_Name', // Changed to First_Name
+      key: 'First_Name',
+    },
+    {
+      title: 'Second Name',
+      dataIndex: 'Second_Name',
+      key: 'Second_Name',  // Added second name column
     },
     {
       title: 'Enrollment Year',
@@ -94,79 +99,82 @@ const StudentManagement = () => {
 
   return (
     <div>
-  <h1>Student Management</h1>
+      <h1>Student Management</h1>
 
-  {/* Search Bar */}
-  <Input.Search
-    placeholder="Search by name"
-    allowClear
-    onChange={(e) => setSearch(e.target.value)}
-    style={{ marginBottom: 16, width: 300 }}
-  />
+      {/* Search Bar */}
+      <Input.Search
+        placeholder="Search by first name"
+        allowClear
+        onChange={(e) => setSearch(e.target.value)}
+        style={{ marginBottom: 16, width: 300 }}
+      />
 
-  {/* Student Table */}
-  <Table
-    dataSource={data}
-    columns={columns}
-    rowKey="Student_Record_ID"
-    loading={loading}
-    pagination={{ pageSize: 10 }}
-  />
+      {/* Student Table */}
+      <Table
+        dataSource={data}
+        columns={columns}
+        rowKey="Student_Record_ID"
+        loading={loading}
+        pagination={{ pageSize: 10 }}
+      />
 
-  {/* Profile Modal */}
-  <Modal
-    title="Student Profile"
-    visible={isProfileVisible}
-    onCancel={() => setIsProfileVisible(false)}
-    footer={[
-      <Button key="close" onClick={() => setIsProfileVisible(false)}>
-        Close
-      </Button>,
-    ]}
-  >
-    {selectedStudent && (
-      <div>
-        <p><strong>Full Name:</strong> {selectedStudent.Full_Name}</p>
-        <p><strong>Enrollment Year:</strong> {selectedStudent.Enrollment_Year}</p>
-        <p><strong>Year Level:</strong> {selectedStudent.Year_Level}</p>
-        <p><strong>Status:</strong> {selectedStudent.Status}</p>
-      </div>
-    )}
-  </Modal>
+      {/* Profile Modal */}
+      <Modal
+        title="Student Profile"
+        visible={isProfileVisible}
+        onCancel={() => setIsProfileVisible(false)}
+        footer={[
+          <Button key="close" onClick={() => setIsProfileVisible(false)}>
+            Close
+          </Button>,
+        ]}
+      >
+        {selectedStudent && (
+          <div>
+            <p><strong>First Name:</strong> {selectedStudent.First_Name}</p> {/* Changed to First Name */}
+            <p><strong>Second Name:</strong> {selectedStudent.Second_Name}</p>
+            <p><strong>Enrollment Year:</strong> {selectedStudent.Enrollment_Year}</p>
+            <p><strong>Year Level:</strong> {selectedStudent.Year_Level}</p>
+            <p><strong>Status:</strong> {selectedStudent.Status}</p>
+          </div>
+        )}
+      </Modal>
 
-  {/* Edit Modal */}
-  <Modal
-    title="Edit Student"
-    visible={isEditVisible}
-    onCancel={() => setIsEditVisible(false)}
-    onOk={() => {
-      form.validateFields().then(handleEditSubmit).catch((info) => {
-        message.error('Validation failed');
-      });
-    }}
-  >
-    <Form form={form} layout="vertical">
-      <Form.Item name="Full_Name" label="Full Name" rules={[{ required: true }]}>
-        <Input />
-      </Form.Item>
-      <Form.Item name="Enrollment_Year" label="Enrollment Year" rules={[{ required: true }]}>
-        <Input />
-      </Form.Item>
-      <Form.Item name="Year_Level" label="Year Level" rules={[{ required: true }]}>
-        <Input />
-      </Form.Item>
-      
-      {/* Status Dropdown */}
-      <Form.Item name="Status" label="Status" rules={[{ required: true }]}>
-        <Select>
-          <Select.Option value="Active">Activate</Select.Option>
-          <Select.Option value="Inactive">Deactivate</Select.Option>
-        </Select>
-      </Form.Item>
-    </Form>
-  </Modal>
-</div>
-
+      {/* Edit Modal */}
+      <Modal
+        title="Edit Student"
+        visible={isEditVisible}
+        onCancel={() => setIsEditVisible(false)}
+        onOk={() => {
+          form.validateFields().then(handleEditSubmit).catch((info) => {
+            message.error('Validation failed');
+          });
+        }}
+      >
+        <Form form={form} layout="vertical">
+          <Form.Item name="First_Name" label="First Name" rules={[{ required: true }]}>
+            <Input />
+          </Form.Item>
+          <Form.Item name="Second_Name" label="Second Name" rules={[{ required: true }]}>
+            <Input />
+          </Form.Item>
+          <Form.Item name="Enrollment_Year" label="Enrollment Year" rules={[{ required: true }]}>
+            <Input />
+          </Form.Item>
+          <Form.Item name="Year_Level" label="Year Level" rules={[{ required: true }]}>
+            <Input />
+          </Form.Item>
+          
+          {/* Status Dropdown */}
+          <Form.Item name="Status" label="Status" rules={[{ required: true }]}>
+            <Select>
+              <Select.Option value="Active">Activate</Select.Option>
+              <Select.Option value="Inactive">Deactivate</Select.Option>
+            </Select>
+          </Form.Item>
+        </Form>
+      </Modal>
+    </div>
   );
 };
 

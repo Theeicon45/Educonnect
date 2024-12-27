@@ -1,4 +1,4 @@
-import  { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Table, Button, message } from 'antd';
 
 const AdmissionManagement = () => {
@@ -18,7 +18,8 @@ const AdmissionManagement = () => {
         // Format the data to include the 'id' field as 'key' for each row
         const formattedData = data.map((item) => ({
           key: item.Application_ID,  // Use the 'id' as the unique key
-          applicantName: item.Applicant_Name,
+          firstName: item.Applicant_Name, // Updated for first name
+          secondName: item.Second_Name, // Added second name
           dateOfBirth: item.Date_of_Birth,
           gender: item.Gender,
           gradeLevelApplied: item.Grade_Level_Applied,
@@ -70,8 +71,12 @@ const AdmissionManagement = () => {
   
   const columns = [
     {
-      title: 'Applicant Name',
-      dataIndex: 'applicantName',
+      title: 'First Name',
+      dataIndex: 'firstName', // Display first name
+    },
+    {
+      title: 'Second Name',
+      dataIndex: 'secondName', // Display second name
     },
     {
       title: 'Date of Birth',
@@ -115,7 +120,6 @@ const AdmissionManagement = () => {
       ),
     },
   ];
-  
 
   return (
     <div>
