@@ -1,9 +1,10 @@
+import FeesTable from "../Components/FeesTable"
 
 
 const FinanceManagement = () => {
   return (
     <div>
-      FinanceManagemen
+      <FeesTable/>
     </div>
   )
 }

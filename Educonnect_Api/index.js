@@ -416,6 +416,47 @@ app.put("/api/teachers/:id", (req, res) => {
     }
   );
 });
+/////////////////////////////////////Fees Table////////////////////////
+app.get("/api/fees", (req, res) => {
+  const query = "SELECT * FROM Fees";
+  db.query(query, (err, results) => {
+    if (err) {
+      res.status(500).json({ error: "Failed to fetch data" });
+      return;
+    }
+    res.json(results);
+    console.log(results)
+  });
+});
+
+app.patch("/api/updateFeeStatus/:id", (req, res) => {
+  const { id } = req.params;
+  const { paymentStatus } = req.body;
+
+  if (!paymentStatus) {
+    return res.status(400).json({ error: "Payment status is required" });
+  }
+
+  const query = "UPDATE Fees SET PaymentStatus = ? WHERE FeeID = ?";
+  db.query(query, [paymentStatus, id], (err, result) => {
+    if (err) {
+      res.status(500).json({ error: "Failed to update fee status" });
+      return;
+    }
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: "Fee not found" });
+    }
+
+    res.json({ message: "Status updated successfully" });
+  });
+});
+
+
+
+
+
+
 
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
