@@ -131,7 +131,7 @@ const FeesTable = () => {
         dataIndex: 'paymentStatus',
         key: 'paymentStatus',
         render: (text, record) => (
-          <div className="grid grid-cols-3 gap-8 items-center">
+          <div className="grid grid-cols-3 gap-12 items-center">
             {/* Status Text */}
             <div className="flex justify-center">
               <span>{text}</span>
@@ -145,7 +145,7 @@ const FeesTable = () => {
                 disabled={text === 'Paid'}
                 className="w-auto"
               >
-                Mark as Paid
+               Paid
               </Button>
             </div>
       
@@ -157,7 +157,7 @@ const FeesTable = () => {
                 disabled={text === 'Unpaid'}
                 className="w-auto bg-purple-500 text-white"
               >
-                Mark as Unpaid
+               Unpaid
               </Button>
             </div>
           </div>

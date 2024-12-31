@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import db from "./dbConfig.js";
 import connection from "./dbConfig.js";
+import bcrypt from "bcryptjs";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -119,62 +120,49 @@ app.get("/api/applications", (req, res) => {
 app.post("/api/login", (req, res) => {
   const { username, password } = req.body;
 
-  const sql =
-    "SELECT * FROM user_credentials WHERE Username = ? AND password_Hash = ?";
-  db.query(sql, [username, password], (err, results) => {
+  // Query to fetch the user based on the username
+  const sql = "SELECT * FROM user_credentials WHERE Username = ?";
+  db.query(sql, [username], async (err, results) => {
     if (err) {
       return res
         .status(500)
         .json({ message: "Database error", error: err.message });
     }
 
+    // If no user is found, return an error
     if (results.length === 0) {
       return res.status(401).json({ message: "Invalid credentials" });
     }
 
-    // Extract the user role
+    // Extract the user from the query result
     const user = results[0];
+    const storedHash = user.Password_Hash; // The hashed password from the database
+
+    // Compare the entered password with the stored hashed password
+    const isMatch = await bcrypt.compare(password, storedHash);
+
+    // If the passwords do not match, return an error
+    if (!isMatch) {
+      return res.status(401).json({ message: "Invalid credentials" });
+    }
+
+    // If passwords match, proceed with the login
     console.log("User role from database:", user.Role);
     res.status(200).json({ role: user.Role });
   });
 });
 
-// // API Endpoint to get applications
-// app.get('/api/applications', (req, res) => {
-//     const sql = 'SELECT * FROM application';
-//     connection.query(sql, (err, results) => {
-//       if (err) {
-//         return res.status(500).json({ error: 'Error fetching applications' });
-//       }
-//       res.json(results); // Send the results back as JSON
-//     });
-//   });
-
-//   // API Endpoint to update status
-//   app.post('/api/updateStatus/:id', (req, res) => {
-//     const { id } = req.params;
-//     const { status } = req.body; // Status can be 'Accepted' or 'Denied'
-
-//     const sql = 'UPDATE application SET Status = ? WHERE id = ?';
-//     connection.query(sql, [status, id], (err, result) => {
-//       if (err) {
-//         return res.status(500).json({ error: 'Error updating status' });
-//       }
-//       res.json({ message: 'Status updated successfully' });
-//     });
-//   });
-
-/////////////////////////////////////////////////status table///////////////////////////////////
+/////////////////////////////////////////////////Admission Management///////////////////////////////////
 app.post("/api/updateStatus/:id", (req, res) => {
   const { id } = req.params;
   const { status } = req.body;
 
   const updateStatusSQL = `
-        UPDATE application 
-        SET Status = ?, 
-            Admission_Date = CASE WHEN ? = 'Accepted' THEN CURDATE() ELSE NULL END 
-        WHERE Application_ID = ?
-    `;
+    UPDATE application 
+    SET Status = ?, 
+        Admission_Date = CASE WHEN ? = 'Accepted' THEN CURDATE() ELSE NULL END 
+    WHERE Application_ID = ?
+  `;
 
   connection.query(updateStatusSQL, [status, status, id], (err, result) => {
     if (err) {
@@ -186,7 +174,7 @@ app.post("/api/updateStatus/:id", (req, res) => {
     }
 
     if (status === "Accepted") {
-      // Fetch application details for the accepted student, including the School_ID
+      // Fetch application details for the accepted student
       const fetchApplicationSQL =
         "SELECT * FROM application WHERE Application_ID = ?";
       connection.query(fetchApplicationSQL, [id], (err, applicationResult) => {
@@ -202,142 +190,97 @@ app.post("/api/updateStatus/:id", (req, res) => {
           const application = applicationResult[0];
           const {
             Application_ID: studentID,
-            Applicant_Name: firstName,
-            Second_Name: secondName, // Using the new fields
-            Grade_Level_Applied: yearLevel,
-            Preferred_School: schoolName,
-            Guardian_Name: guardianName,
-            Guardian_Contact: guardianContact,
+            Applicant_Name: studentName,
+            Grade_Level_Applied: classGrade,
           } = application;
 
-          // Get the School_ID from the Preferred_School (schoolName)
-          const getSchoolIDSQL =
-            "SELECT School_ID FROM school WHERE School_Name = ?";
+          // Insert into fees table
+          const insertFeesSQL = `
+            INSERT INTO fees 
+            (StudentID, StudentName, ClassGrade, FeeType, AmountDue, AmountPaid, DueDate, PaymentStatus)
+            VALUES (?, ?, ?, 'Tuition Fee', 35000, 0, DATE_ADD(CURDATE(), INTERVAL 30 DAY), 'Unpaid')
+          `;
+
           connection.query(
-            getSchoolIDSQL,
-            [schoolName],
-            (err, schoolResult) => {
+            insertFeesSQL,
+            [studentID, studentName, classGrade],
+            (err, feesResult) => {
               if (err) {
-                console.error("Error fetching school details:", err);
+                console.error("Error inserting into fees table:", err);
                 return res.status(500).json({
-                  error: "Error fetching school details",
+                  error: "Error inserting into fees table",
                   details: err.message,
                 });
               }
 
-              if (schoolResult.length > 0) {
-                const schoolID = schoolResult[0].School_ID;
-
-                // Insert into `student_record`
-                const insertStudentSQL = `
-                                INSERT INTO student_record 
-                                (Student_ID, School_ID, First_Name, Second_Name, Enrollment_Year, Year_Level, Term_Average_Grade, Guardian_ID, Status)
-                                VALUES (?, ?, ?, ?, YEAR(CURDATE()), ?, 'N/A', ?, 'Active')
-                            `;
-
-                const guardianID = Math.floor(Math.random() * 100000); // Generate a mock guardian ID
-
-                connection.query(
-                  insertStudentSQL,
-                  [
-                    studentID,
-                    schoolID,
-                    firstName,
-                    secondName,
-                    yearLevel,
-                    guardianID,
-                  ],
-                  (err, studentInsertResult) => {
-                    if (err) {
-                      console.error(
-                        "Error inserting into student_record:",
-                        err
-                      );
-                      return res.status(500).json({
-                        error: "Error inserting into student_record",
-                        details: err.message,
-                      });
-                    }
-
-                    console.log(
-                      "Student record created successfully:",
-                      studentInsertResult
-                    );
-                    res.json({
-                      message:
-                        "Status updated, admission date set, and student record created successfully",
-                    });
-                  }
-                );
-              } else {
-                console.error("School not found for name:", schoolName);
-                return res.status(404).json({ error: "School not found" });
-              }
+              console.log("Fees record created successfully:", feesResult);
+              res.json({
+                message:
+                  "Status updated, admission date set, and fees record created successfully.",
+              });
             }
           );
         } else {
-          console.error("Application not found for ID:", id);
           res.status(404).json({ error: "Application not found" });
         }
       });
     } else {
       console.log("Status updated successfully for ID:", id);
-      res.json({ message: "Status updated successfully" });
+      res.json({ message: "Status updated successfully." });
     }
   });
 });
 
 ///////////////////////////////////////////student management/////////////////////////
 app.get("/api/students", (req, res) => {
-    const { search = "" } = req.query;
-  
-    const query = `
+  const { search = "" } = req.query;
+
+  const query = `
         SELECT Student_Record_ID, First_Name, Second_Name, Enrollment_Year, Year_Level, Status
         FROM student_record 
         WHERE First_Name LIKE ? OR Second_Name LIKE ?  /* Search by first and second name */
         ORDER BY First_Name ASC;
       `;
-  
-    connection.query(query, [`%${search}%`, `%${search}%`], (err, rows) => {
-      if (err) {
-        console.error(err);
-        return res.status(500).json({ error: "Failed to fetch students" });
-      }
-  
-      res.json(rows);
-    });
+
+  connection.query(query, [`%${search}%`, `%${search}%`], (err, rows) => {
+    if (err) {
+      console.error(err);
+      return res.status(500).json({ error: "Failed to fetch students" });
+    }
+
+    res.json(rows);
   });
-  
+});
 
 // Endpoint to update student record
 app.put("/api/students/:id", (req, res) => {
-    const { id } = req.params;
-    const { First_Name, Second_Name, Enrollment_Year, Year_Level, Status } = req.body;
-  
-    const sql = `
+  const { id } = req.params;
+  const { First_Name, Second_Name, Enrollment_Year, Year_Level, Status } =
+    req.body;
+
+  const sql = `
       UPDATE student_record 
       SET First_Name = ?, Second_Name = ?, Enrollment_Year = ?, Year_Level = ?, Status = ? 
       WHERE Student_Record_ID = ?
     `;
-  
-    connection.query(
-      sql,
-      [First_Name, Second_Name, Enrollment_Year, Year_Level, Status, id],
-      (err, result) => {
-        if (err) {
-          console.error("Error updating student:", err);
-          return res.status(500).json({ error: "Failed to update student" });
-        }
-  
-        res.status(200).json({ message: "Student updated successfully" });
+
+  connection.query(
+    sql,
+    [First_Name, Second_Name, Enrollment_Year, Year_Level, Status, id],
+    (err, result) => {
+      if (err) {
+        console.error("Error updating student:", err);
+        return res.status(500).json({ error: "Failed to update student" });
       }
-    );
-  });
-  
+
+      res.status(200).json({ message: "Student updated successfully" });
+    }
+  );
+});
 
 //////////////////////////////TEACHER CREATION/////////////////////////////////////////////
 
-app.post("/api/teachers", (req, res) => {
+app.post("/api/teachers", async (req, res) => {
   const {
     First_Name,
     Last_Name,
@@ -350,12 +293,13 @@ app.post("/api/teachers", (req, res) => {
     Status,
   } = req.body;
 
+  // Insert teacher data into the teacher table
   const sql = `
-        INSERT INTO teacher (
-            First_Name, Last_Name, Email, Phone_Number, Subject_Specialty, 
-            School_ID, Employment_Status, Hire_Date, Status
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `;
+    INSERT INTO teacher (
+      First_Name, Last_Name, Email, Phone_Number, Subject_Specialty, 
+      School_ID, Employment_Status, Hire_Date, Status
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `;
   const values = [
     First_Name,
     Last_Name,
@@ -368,13 +312,34 @@ app.post("/api/teachers", (req, res) => {
     Status,
   ];
 
-  db.query(sql, values, (err, results) => {
-    if (err) {
-      console.error("Error inserting teacher:", err);
-      return res.status(500).send(err);
-    }
-    res.status(201).send({ message: "Teacher added successfully", results });
-  });
+  try {
+    const [teacherResult] = await db.promise().query(sql, values);
+
+    // Teacher ID from the teacher table
+    const teacherID = teacherResult.insertId;
+
+    // Generate default username and password for the teacher
+    const username = `${First_Name.toLowerCase()} ${Last_Name.toLowerCase()}`;
+    const defaultPassword = "password123"; // Default password (you can change this)
+    const hashedPassword = await bcrypt.hash(defaultPassword, 10);
+
+    // Insert into user_credentials table
+    const insertCredentialsSQL = `
+       INSERT INTO user_credentials (Username, Password_Hash, Role, Email)
+      VALUES (?, ?, ?, ?)
+    `;
+    const role = "teacher"; // Role for teacher
+    const credentialsValues = [username, hashedPassword, role, Email];
+    await db.promise().query(insertCredentialsSQL, credentialsValues);
+
+    // Respond with success
+    res.status(201).send({ message: "Teacher added successfully", teacherID });
+  } catch (err) {
+    console.error("Error inserting teacher:", err);
+    res
+      .status(500)
+      .send({ message: "Error adding teacher", error: err.message });
+  }
 });
 
 //////////////////////Teacher Table//////////////////////
@@ -425,7 +390,7 @@ app.get("/api/fees", (req, res) => {
       return;
     }
     res.json(results);
-    console.log(results)
+    console.log(results);
   });
 });
 
@@ -452,9 +417,69 @@ app.patch("/api/updateFeeStatus/:id", (req, res) => {
   });
 });
 
+//////////////////////////// Finance data graph////////////////////////////////
+
+app.get("/api/financeData", (req, res) => {
+  const financeQuery = `
+    SELECT
+      MONTHNAME(DueDate) AS monthName,
+      SUM(AmountDue) * CASE 
+        WHEN MONTH(DueDate) = 1 THEN 0.33
+        WHEN MONTH(DueDate) = 2 THEN 0.67
+        WHEN MONTH(DueDate) = 3 THEN 0.95
+        WHEN MONTH(DueDate) = 9 THEN 0.33
+        WHEN MONTH(DueDate) = 10 THEN 0.67
+        WHEN MONTH(DueDate) = 11 THEN 0.95
+        ELSE 0
+      END AS Expected,
+      SUM(AmountPaid) AS Paid
+    FROM fees
+    WHERE MONTH(DueDate) IN (1, 2, 3, 9, 10, 11)
+    GROUP BY MONTH(DueDate)
+    ORDER BY FIELD(MONTHNAME(DueDate), 'September', 'October', 'November', 'January', 'February', 'March')
+  `;
+
+  connection.query(financeQuery, (err, result) => {
+    if (err) {
+      console.error("Error fetching finance data:", err);
+      return res.status(500).json({ error: "Error fetching finance data" });
+    }
+
+    // Map results into the required format
+    const financeData = result.map(row => ({
+      name: row.monthName,
+      Expected: parseFloat(row.Expected || 0),
+      Paid: parseFloat(row.Paid || 0),
+    }));
+
+    res.json(financeData);
+  });
+});
 
 
+////////////ExpenseChart///////////////
+app.get("/api/expenseSummary", (req, res) => {
+  const expenseSummaryQuery = `
+    SELECT ExpenseCategory, SUM(Amount) AS totalAmount
+    FROM expenses
+    WHERE YEAR(ExpenseDate) = YEAR(CURDATE())
+    GROUP BY ExpenseCategory
+  `;
 
+  connection.query(expenseSummaryQuery, (err, result) => {
+    if (err) {
+      console.error("Error fetching expense summary:", err);
+      return res.status(500).json({ error: "Error fetching expense summary" });
+    }
+
+    const summary = result.map(row => ({
+      name: row.ExpenseCategory,
+      value: parseFloat(row.totalAmount),
+    }));
+
+    res.json(summary);
+  });
+});
 
 
 

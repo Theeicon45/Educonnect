@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Dec 28, 2024 at 06:21 PM
+-- Generation Time: Dec 31, 2024 at 02:45 PM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -51,8 +51,8 @@ CREATE TABLE `application` (
 --
 
 INSERT INTO `application` (`Application_ID`, `Student_ID`, `School_ID`, `Applicant_Name`, `Second_Name`, `Date_of_Birth`, `Gender`, `Grade_Level_Applied`, `Guardian_Name`, `Guardian_Contact`, `Previous_School`, `Application_Date`, `Status`, `Admission_Date`, `Preferred_School`, `Remarks`) VALUES
-(1, NULL, 1, 'Me', '0', '2009-02-10', 'Male', 8, 'Eye', '0700003526', 'kac', '2024-12-23', 'Accepted', '2024-12-23', 'Terry and Kay Kisumu', 'mmmh'),
-(2, NULL, 0, 'Naruto', 'Uzumaki', '2013-10-15', 'Male', 6, 'Hiruzen', '1212121212', 'leaf', '2024-12-23', 'Accepted', '2024-12-27', 'Terry and Kay Nairobi', 'jkjkj'),
+(1, NULL, 1, 'Me', '0', '2009-02-10', 'Male', 8, 'Eye', '0700003526', 'kac', '2024-12-23', 'Accepted', '2024-12-31', 'Terry and Kay Kisumu', 'mmmh'),
+(2, NULL, 0, 'Naruto', 'Uzumaki', '2013-10-15', 'Male', 6, 'Hiruzen', '1212121212', 'leaf', '2024-12-23', NULL, '2024-12-27', 'Terry and Kay Nairobi', 'jkjkj'),
 (3, NULL, 2, 'Sarada', '0', '2012-07-18', 'Female', 9, 'Sakura', '0734353637', 'None', '2024-12-23', '', NULL, 'Terry and Kay Makueni', ''),
 (4, NULL, 3, 'judah', '0', '2011-07-25', 'Male', 10, 'Tabitha', '0734353690', 'kyumbi', '2024-12-23', '', NULL, 'Terry and Kay Kitengela', ''),
 (5, NULL, 4, 'Mike', '0', '2012-06-06', 'Male', 7, 'Mosh', '1212121212', 'continental', '2024-12-23', '', NULL, 'Terry and Kay Gatundu', 'haha'),
@@ -82,20 +82,33 @@ CREATE TABLE `class` (
 -- --------------------------------------------------------
 
 --
--- Table structure for table `fee_payments`
+-- Table structure for table `fees`
 --
 
-CREATE TABLE `fee_payments` (
-  `Student_ID` int(20) NOT NULL,
-  `Student_Name` varchar(100) NOT NULL,
-  `Grade` int(20) NOT NULL,
-  `Amount_Due` int(100) NOT NULL,
-  `Amount_Paid` int(100) NOT NULL,
-  `Balance` int(100) NOT NULL,
-  `Due_Date` date NOT NULL,
-  `Payment_Status` varchar(100) NOT NULL,
-  `Payment_Method` varchar(100) NOT NULL
+CREATE TABLE `fees` (
+  `FeeID` int(11) NOT NULL,
+  `StudentID` int(11) NOT NULL,
+  `StudentName` varchar(100) NOT NULL,
+  `ClassGrade` varchar(50) NOT NULL,
+  `FeeType` varchar(50) NOT NULL,
+  `AmountDue` decimal(10,2) NOT NULL,
+  `AmountPaid` decimal(10,2) DEFAULT 0.00,
+  `Balance` decimal(10,2) GENERATED ALWAYS AS (`AmountDue` - `AmountPaid`) STORED,
+  `DueDate` date NOT NULL,
+  `PaymentStatus` enum('Paid','Partially Paid','Unpaid') NOT NULL,
+  `PaymentMethod` varchar(50) DEFAULT NULL,
+  `CreatedAt` timestamp NOT NULL DEFAULT current_timestamp(),
+  `UpdatedAt` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `fees`
+--
+
+INSERT INTO `fees` (`FeeID`, `StudentID`, `StudentName`, `ClassGrade`, `FeeType`, `AmountDue`, `AmountPaid`, `DueDate`, `PaymentStatus`, `PaymentMethod`, `CreatedAt`, `UpdatedAt`) VALUES
+(4, 1, 'John Doe', 'Grade 10', 'Tuition', 500.00, 200.00, '2024-01-15', 'Partially Paid', 'Online', '2024-12-28 17:41:43', '2024-12-28 17:41:43'),
+(5, 2, 'Jane Smith', 'Grade 8', 'Sports', 150.00, 150.00, '2024-01-10', 'Paid', 'Cash', '2024-12-28 17:41:43', '2024-12-31 07:20:36'),
+(6, 3, 'Emily Johnson', 'Grade 12', 'Exam Fee', 300.00, 0.00, '2024-01-20', 'Unpaid', NULL, '2024-12-28 17:41:43', '2024-12-28 18:45:53');
 
 -- --------------------------------------------------------
 
@@ -183,8 +196,7 @@ CREATE TABLE `student_record` (
 --
 
 INSERT INTO `student_record` (`Student_Record_ID`, `Student_ID`, `School_ID`, `First_Name`, `Second_Name`, `Enrollment_Year`, `Year_Level`, `Term_Average_Grade`, `Guardian_ID`, `Status`) VALUES
-(17, 1, 1, 'Merlin', 'Kamau', '2024', 7, 'N/A', 61850, 'Active'),
-(18, 2, 0, 'Naruto', 'Uzumaki', '2024', 6, 'N/A', 38145, 'Active');
+(33, 1, 1, 'Me', '0', '2024', 8, 'N/A', 69305, 'Active');
 
 -- --------------------------------------------------------
 
@@ -226,8 +238,7 @@ CREATE TABLE `teacher` (
 --
 
 INSERT INTO `teacher` (`Teacher_ID`, `First_Name`, `Last_Name`, `Email`, `Phone_Number`, `Subject_Specialty`, `School_ID`, `Employment_Status`, `Hire_Date`, `Status`) VALUES
-(1, 'Judah', 'Kinyanjui', 'judahkinyanjui@gmail.com', '0110733243', '', 2, 'Contract', '2024-12-27', 'Active'),
-(2, 'Tabitha ', 'Wakonyo', 'tabitha@gmail.com', '0724933622', '', 0, 'Full-Time', '2024-12-27', 'Active');
+(1, 'Judah', 'Kinyanjui', 'judahkinyanjui@gmail.com', '0110733243', 'Math & Science', 2, 'Contract', '2024-12-31', 'Active');
 
 -- --------------------------------------------------------
 
@@ -265,9 +276,11 @@ CREATE TABLE `user_credentials` (
 --
 
 INSERT INTO `user_credentials` (`User_ID`, `Username`, `Password_Hash`, `Role`, `Email`) VALUES
-(1, 'Lamar', '1234', 'Admin', 'lamar@mail.com'),
-(2, 'Kigen', '1234', 'Teacher', 'kigen@mail.com'),
-(3, 'Mosh', '1234', 'student', 'mosh@mail.com');
+(14, 'Lamar', '$2a$10$3LL7kkQp2yBMrrBK26gE0.le5FfOOsSlkt6ZN32WjwVv0n.Pm8ARe', 'Admin', 'lamar@mail.com'),
+(15, 'Kigen', '$2a$10$ri412bT6jnrql893Wkzqc.bq2VxWAFsMep84Pvh3TSsdnoVfWfTJm', 'Teacher', 'kigen@mail.com'),
+(16, 'Mosh', '$2a$10$gT4V.mtRsepf8ASUje1FAuF6XLDasqV2QPV.gv1.PcBcoiDmBIUfu', 'Student', 'mosh@mail.com'),
+(17, 'Me0', '$2a$10$rDe14AnMRLFnVrug83oC0e0cgagcLP1yTLG3P.4ZwJxIef3qYsG3a', 'Student', 'me.0@school.com'),
+(23, 'judah kinyanjui', '$2a$10$rCST/yWeCzRZCkV2nZFfoO.hcICOkALuyiQpmE8Jf82y8e3ifvP.W', 'teacher', 'judahkinyanjui@gmail.com');
 
 --
 -- Indexes for dumped tables
@@ -286,6 +299,12 @@ ALTER TABLE `application`
 ALTER TABLE `class`
   ADD PRIMARY KEY (`Class_ID`),
   ADD KEY `Teacher_ID` (`Teacher_ID`);
+
+--
+-- Indexes for table `fees`
+--
+ALTER TABLE `fees`
+  ADD PRIMARY KEY (`FeeID`);
 
 --
 -- Indexes for table `finance_record`
@@ -355,22 +374,28 @@ ALTER TABLE `application`
   MODIFY `Application_ID` int(20) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=14;
 
 --
+-- AUTO_INCREMENT for table `fees`
+--
+ALTER TABLE `fees`
+  MODIFY `FeeID` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
+
+--
 -- AUTO_INCREMENT for table `student_record`
 --
 ALTER TABLE `student_record`
-  MODIFY `Student_Record_ID` int(20) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=19;
+  MODIFY `Student_Record_ID` int(20) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=34;
 
 --
 -- AUTO_INCREMENT for table `teacher`
 --
 ALTER TABLE `teacher`
-  MODIFY `Teacher_ID` int(20) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+  MODIFY `Teacher_ID` int(20) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
 -- AUTO_INCREMENT for table `user_credentials`
 --
 ALTER TABLE `user_credentials`
-  MODIFY `User_ID` int(50) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
+  MODIFY `User_ID` int(50) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=24;
 
 --
 -- Constraints for dumped tables
@@ -400,13 +425,6 @@ ALTER TABLE `finance_record`
 --
 ALTER TABLE `grades`
   ADD CONSTRAINT `grades_ibfk_1` FOREIGN KEY (`Student_ID`) REFERENCES `student_record` (`Student_Record_ID`);
-
---
--- Constraints for table `student_record`
---
-ALTER TABLE `student_record`
-  ADD CONSTRAINT `school-id` FOREIGN KEY (`School_ID`) REFERENCES `school` (`School_ID`),
-  ADD CONSTRAINT `student_record_ibfk_1` FOREIGN KEY (`Student_ID`) REFERENCES `student_record` (`Student_Record_ID`);
 
 --
 -- Constraints for table `subject`
