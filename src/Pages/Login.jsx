@@ -27,8 +27,12 @@ const Login = () => {
 
       if (response.ok) {
         const data = await response.json();
-        
+        console.log('Login Response:', data); // Log the response from the backend
         const { role } = data;
+        localStorage.setItem('token', data.token);
+        // Example of storing user ID upon successful login
+        
+
 
         // Redirect based on role
         if (role.toLowerCase() === 'admin') {
@@ -40,6 +44,8 @@ const Login = () => {
       }
       } else {
         alert('Invalid credentials');
+        const errorData = await response.json();
+      console.error('Error Response:', errorData);
       }
     } catch (error) {
       console.error('Error logging in:', error);

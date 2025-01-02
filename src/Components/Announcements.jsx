@@ -1,45 +1,72 @@
-import React from 'react'
+import { useState, useEffect } from 'react';
 
 const Announcements = () => {
-  return (
-    <div className="bg-white p-4  rounded-md">
-        <div className='flex items-center justify-between'>
-            <h1>Announcements</h1>
-            <span className='text-xs text-gray-400'>View all</span>
-        </div>
-            <div className='flex flex-col gap-4 mt-4'>
-             <div className='bg-Orange-100 rounded-md p-4'>
-                <div className='flex items-center justify-between'>
-                    <h2 className=' font-medium'>Lorem ipsum dolor sit amet.</h2>
-                    <span className='text-xs text-gray-400 bg-white rounded-md p-1'>2025-01-01</span>
-                </div>
-                <p className='text-sm text-gray-400 mt-1'>Lorem ipsum dolor sit amet consectetur adipisicing elit. Molestias, provident?</p>
-             </div>
-            
-            </div>
-            <div className='flex flex-col gap-4 mt-4'>
-             <div className='bg-cyan-100 rounded-md p-4'>
-                <div className='flex items-center justify-between'>
-                    <h2 className=' font-medium'>Lorem ipsum dolor sit amet.</h2>
-                    <span className='text-xs text-gray-400 bg-white rounded-md p-1'>2025-01-01</span>
-                </div>
-                <p className='text-sm text-gray-400 mt-1'>Lorem ipsum dolor sit amet consectetur adipisicing elit. Molestias, provident?</p>
-             </div>
-            
-            </div>
-            <div className='flex flex-col gap-4 mt-4'>
-             <div className='bg-Red-100 rounded-md p-4'>
-                <div className='flex items-center justify-between'>
-                    <h2 className=' font-medium'>Lorem ipsum dolor sit amet.</h2>
-                    <span className='text-xs text-gray-400 bg-white rounded-md p-1'>2025-01-01</span>
-                </div>
-                <p className='text-sm text-gray-400 mt-1'>Lorem ipsum dolor sit amet consectetur adipisicing elit. Molestias, provident?</p>
-             </div>
-            
-            </div>
-      
-    </div>
-  )
-}
+  const [announcements, setAnnouncements] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-export default Announcements
+  // Fetch announcements on component mount
+  useEffect(() => {
+    const fetchAnnouncements = async () => {
+      try {
+        const token = localStorage.getItem('token'); // Get the token from localStorage
+
+        const response = await fetch('http://localhost:3000/api/announcements', {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`, // Add the token to the Authorization header
+          },
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setAnnouncements(data);
+        } else {
+          alert('Failed to fetch announcements');
+        }
+      } catch (error) {
+        console.error('Error fetching announcements:', error);
+        alert('Error fetching announcements');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAnnouncements();
+  }, []);
+
+  if (loading) {
+    return <div>Loading...</div>; // You can customize this loading screen
+  }
+
+  return (
+    <div className="bg-white p-4 rounded-md">
+      <div className="flex items-center justify-between">
+        <h1>Announcements</h1>
+        <span className="text-xs text-gray-400">View all</span>
+      </div>
+      <div className="flex flex-col gap-4 mt-4">
+        {announcements.length > 0 ? (
+          announcements.map((announcement) => (
+            <div
+              key={announcement.Announcement_ID} // Use Announcement_ID for unique key
+              className="bg-Orange-100 rounded-md p-4"
+            >
+              <div className="flex items-center justify-between">
+                <h2 className="font-medium">{announcement.Title}</h2> {/* Use Title */}
+                <span className="text-xs text-gray-400 bg-white rounded-md p-1">
+                  {new Date(announcement.Expiry_Date).toLocaleDateString()} {/* Format Expiry_Date */}
+                </span>
+              </div>
+              <p className="text-sm text-gray-400 mt-1">{announcement.Content}</p> {/* Use Content */}
+            </div>
+          ))
+        ) : (
+          <div>No announcements found.</div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default Announcements;

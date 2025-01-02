@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
+import { useState, useEffect } from "react";
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts";
 
-const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#FF6666'];
+const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#FF6666"];
 
 const ExpensePieChart = () => {
   const [data, setData] = useState([]);
@@ -26,6 +26,16 @@ const ExpensePieChart = () => {
   // Calculate the total value of all expenses
   const totalExpense = data.reduce((acc, entry) => acc + entry.value, 0);
 
+  const TooltipWithPercentage = ({ value, name }) => {
+    if (totalExpense === 0) return [`$${value.toFixed(2)}`, `${name} (0%)`];
+    const percentage = ((value / totalExpense) * 100).toFixed(2);
+    return [`$${value.toFixed(2)}`, `${name} (${percentage}%)`];
+  };
+
+  if (data.length === 0) {
+    return <div>Loading data...</div>;
+  }
+
   return (
     <ResponsiveContainer width="100%" height={400}>
       <PieChart>
@@ -42,12 +52,8 @@ const ExpensePieChart = () => {
             <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
           ))}
         </Pie>
-        {/* Add Tooltip with value and percentage */}
         <Tooltip
-          formatter={(value, name) => {
-            const percentage = ((value / totalExpense) * 100).toFixed(2); // Calculate percentage
-            return [`$${value.toFixed(2)}`, `${name} (${percentage}%)`]; // Show value and percentage
-          }}
+          formatter={(value, name) => TooltipWithPercentage({ value, name })}
           contentStyle={{
             backgroundColor: "#f9f9f9",
             borderRadius: "10px",
@@ -55,7 +61,6 @@ const ExpensePieChart = () => {
             padding: "10px",
           }}
         />
-        {/* Add Legend aligned to the right */}
         <Legend
           layout="vertical"
           align="right"

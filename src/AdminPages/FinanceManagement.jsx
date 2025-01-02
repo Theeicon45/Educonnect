@@ -12,7 +12,8 @@ const FinanceManagement = () => {
         </div>
         {/* Left */}
         <div className="w-1/2 rounded-lg bg-purple-100 h-full p-6">
-          <ExpensePieChart />
+
+        <ExpensePieChart/>
         </div>
       </div>
       <FeesTable />

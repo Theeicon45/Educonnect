@@ -3,6 +3,10 @@ import cors from "cors";
 import db from "./dbConfig.js";
 import connection from "./dbConfig.js";
 import bcrypt from "bcryptjs";
+import jwt from 'jsonwebtoken';
+import authenticateToken from './authenticateToken.js';
+
+
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -117,16 +121,18 @@ app.get("/api/applications", (req, res) => {
   });
 });
 // Endpoint to handle login
+
+
+const SECRET_KEY = 'your-secret-key';  // Replace with a strong secret key
+
 app.post("/api/login", (req, res) => {
   const { username, password } = req.body;
 
   // Query to fetch the user based on the username
   const sql = "SELECT * FROM user_credentials WHERE Username = ?";
-  db.query(sql, [username], async (err, results) => {
+  connection.query(sql, [username], async (err, results) => {
     if (err) {
-      return res
-        .status(500)
-        .json({ message: "Database error", error: err.message });
+      return res.status(500).json({ message: "Database error", error: err.message });
     }
 
     // If no user is found, return an error
@@ -146,11 +152,25 @@ app.post("/api/login", (req, res) => {
       return res.status(401).json({ message: "Invalid credentials" });
     }
 
-    // If passwords match, proceed with the login
-    console.log("User role from database:", user.Role);
-    res.status(200).json({ role: user.Role });
+    // If passwords match, create a JWT token
+    const payload = {
+      userId: user.User_ID,  // Assuming you have User_ID in your database
+      role: user.Role,       // Assuming you have Role in your database
+    };
+
+    // Create the JWT token with the payload and secret key
+    const token = jwt.sign(payload, SECRET_KEY, { expiresIn: '1h' });  // Token expires in 1 hour
+
+    // Send the token and role in the response
+    res.status(200).json({
+      message: 'Login successful',
+      token: token,  // Send the JWT token in the response
+      role: user.Role  // Include the user's role in the response
+    });
   });
 });
+
+
 
 /////////////////////////////////////////////////Admission Management///////////////////////////////////
 app.post("/api/updateStatus/:id", (req, res) => {
@@ -390,7 +410,7 @@ app.get("/api/fees", (req, res) => {
       return;
     }
     res.json(results);
-    console.log(results);
+    
   });
 });
 
@@ -446,7 +466,7 @@ app.get("/api/financeData", (req, res) => {
     }
 
     // Map results into the required format
-    const financeData = result.map(row => ({
+    const financeData = result.map((row) => ({
       name: row.monthName,
       Expected: parseFloat(row.Expected || 0),
       Paid: parseFloat(row.Paid || 0),
@@ -456,14 +476,14 @@ app.get("/api/financeData", (req, res) => {
   });
 });
 
-
 ////////////ExpenseChart///////////////
 app.get("/api/expenseSummary", (req, res) => {
   const expenseSummaryQuery = `
-    SELECT ExpenseCategory, SUM(Amount) AS totalAmount
-    FROM expenses
-    WHERE YEAR(ExpenseDate) = YEAR(CURDATE())
-    GROUP BY ExpenseCategory
+  SELECT ExpenseCategory, SUM(Amount) AS totalAmount
+  FROM expenses
+  WHERE ExpenseDate >= DATE_SUB(CURDATE(), INTERVAL 6 MONTH)
+  GROUP BY ExpenseCategory;
+
   `;
 
   connection.query(expenseSummaryQuery, (err, result) => {
@@ -472,12 +492,274 @@ app.get("/api/expenseSummary", (req, res) => {
       return res.status(500).json({ error: "Error fetching expense summary" });
     }
 
-    const summary = result.map(row => ({
+    // console.log("Raw Query Result:", result); // Log raw data from the database
+
+    const summary = result.map((row) => ({
       name: row.ExpenseCategory,
       value: parseFloat(row.totalAmount),
     }));
 
+    // console.log("Formatted Summary:", summary); // Log formatted data sent to the client
+
     res.json(summary);
+  });
+});
+////////////////////////////////Communication Center//////////////
+
+// Announcement creation API
+app.post('/api/announcements', (req, res) => {
+  const token = req.headers.authorization?.split(' ')[1]; // Extract token from headers
+
+  if (!token) {
+    return res.status(401).json({ message: 'Unauthorized' });
+  }
+
+  try {
+    // Verify the token and get user data
+    const decoded = jwt.verify(token, SECRET_KEY);
+    const { userId } = decoded; // Get user ID from the token
+
+    const { Title, Content, Target_Audience, Target_ID, Expiry_Date } = req.body;
+
+    // SQL query to insert the announcement into the database
+    const sql = `
+      INSERT INTO Announcements (Title, Content, Target_Audience, Target_ID, Created_By, Created_At, Expiry_Date)
+      VALUES (?, ?, ?, ?, ?, NOW(), ?)
+    `;
+    connection.query(
+      sql,
+      [Title, Content, Target_Audience, Target_ID, userId, Expiry_Date],
+      (err, results) => {
+        if (err) {
+          console.error('Error inserting announcement:', err);
+          return res.status(500).json({ message: 'Failed to create announcement' });
+        }
+
+        res.status(200).json({ message: 'Announcement created successfully' });
+      }
+    );
+  } catch (error) {
+    console.error('Error verifying token:', error);
+    res.status(401).json({ message: 'Invalid or expired token' });
+  }
+});
+
+// announcement fetching
+// Assuming you're using Express
+app.get("/api/announcements", authenticateToken, (req, res) => {
+  const sql = "SELECT * FROM announcements ORDER BY Expiry_date DESC"; // Adjust according to your DB structure
+
+  connection.query(sql, (err, results) => {
+    if (err) {
+      return res.status(500).json({ message: "Database error", error: err.message });
+    }
+    res.status(200).json(results);
+
+  });
+});
+
+
+///////////////////////////////// Event creation
+app.post('/api/events', (req, res) => {
+  const token = req.headers.authorization?.split(' ')[1]; // Extract token from headers
+
+  if (!token) {
+    return res.status(401).json({ message: 'Unauthorized' });
+  }
+
+  try {
+    // Verify the token and get user data
+    const decoded = jwt.verify(token, SECRET_KEY);
+    const { userId } = decoded; // Get user ID from the token
+
+    const { Title, Description, Event_Date } = req.body;
+
+    // SQL query to insert the event into the database
+    const sql = `
+      INSERT INTO Events (Title, Description, Event_Date, Created_By, Created_At)
+      VALUES (?, ?, ?, ?, NOW())
+    `;
+    connection.query(
+      sql,
+      [Title, Description, Event_Date, userId],
+      (err, results) => {
+        if (err) {
+          console.error('Error inserting event:', err);
+          return res.status(500).json({ message: 'Failed to create event' });
+        }
+
+        res.status(200).json({ message: 'Event created successfully' });
+      }
+    );
+  } catch (error) {
+    console.error('Error verifying token:', error);
+    res.status(401).json({ message: 'Invalid or expired token' });
+  }
+});
+
+// Fetch events
+app.get('/api/events', (req, res) => {
+  const token = req.headers.authorization?.split(' ')[1];
+
+  if (!token) {
+    return res.status(401).json({ message: 'Unauthorized' });
+  }
+
+  try {
+    const decoded = jwt.verify(token, SECRET_KEY);
+
+    const sql = `
+      SELECT Event_id, Title, Description, Event_Date
+      FROM Events
+      WHERE Created_By = ? OR ? = 1
+    `;
+
+    connection.query(sql, [decoded.userId, decoded.userId], (err, results) => {
+      if (err) {
+        console.error('Error fetching events:', err);
+        return res.status(500).json({ message: 'Failed to fetch events' });
+      }
+
+      res.status(200).json(results);
+    });
+  } catch (error) {
+    console.error('Error verifying token:', error);
+    res.status(401).json({ message: 'Invalid or expired token' });
+  }
+});
+
+
+// FORUMS///////////////////////////////
+// Get Forums
+app.post('/api/forums', authenticateToken, (req, res) => {
+  const { name, description } = req.body;
+  const userId = req.user.userId; // Access the userId from the decoded token
+
+  const sql = `
+    INSERT INTO Forums (Name, Description, Created_By, Created_At)
+    VALUES (?, ?, ?, NOW())
+  `;
+
+  connection.query(sql, [name, description, userId], (err, results) => {
+    if (err) {
+      console.error('Error creating forum:', err);
+      return res.status(500).json({ message: 'Failed to create forum' });
+    }
+
+    res.status(200).json({ message: 'Forum created successfully' });
+  });
+});
+
+// Fetch all forums
+app.get('/api/forums', authenticateToken, (req, res) => {
+  // The SQL query to fetch all forums ordered by creation date
+  const sql = "SELECT * FROM forums ORDER BY Created_At DESC";
+
+  connection.query(sql, (err, results) => {
+    if (err) {
+      // Handle database query error
+      console.error('Error fetching forums:', err);
+
+      return res.status(500).json({ message: 'Database error', error: err.message });
+    }
+   // Log the results to verify data is returned
+
+    // Return the fetched forums as a JSON response
+    res.status(200).json(results);
+  });
+});
+
+
+// Get Threads in a Forum
+app.get('/api/forums/:forumId/threads', authenticateToken, (req, res) => {
+  const { forumId } = req.params;
+
+  const sql = 'SELECT * FROM Threads WHERE Forum_ID = ? ORDER BY Created_At DESC';
+  
+  connection.query(sql, [forumId], (err, results) => {
+    if (err) {
+      return res.status(500).json({ message: 'Failed to fetch threads', error: err.message });
+    }
+    console.log('Forum ID:', forumId);
+
+    res.status(200).json(results);
+  });
+});
+
+
+// Create Thread
+app.post('/api/forums/:forumId/threads', authenticateToken, (req, res) => {
+  const { forumId } = req.params;
+  const { title, content } = req.body;
+  const userId = req.userId;  // User's ID decoded from the JWT token
+
+  const sql = `
+    INSERT INTO Threads (Forum_ID, Title, Content, Created_By, Created_At)
+    VALUES (?, ?, ?, ?, NOW())
+  `;
+
+  connection.query(sql, [forumId, title, content, userId], (err, results) => {
+    if (err) {
+      console.error('Error inserting thread:', err);
+      return res.status(500).json({ message: 'Failed to create thread' });
+    }
+
+    res.status(200).json({ message: 'Thread created successfully' });
+  });
+});
+
+
+// Get Comments in a Thread
+app.get('/api/threads/:threadId/comments', authenticateToken, (req, res) => {
+  const { threadId } = req.params;
+
+  const sql = 'SELECT * FROM Comments WHERE Thread_ID = ? ORDER BY Created_At DESC';
+
+  connection.query(sql, [threadId], (err, results) => {
+    if (err) {
+      return res.status(500).json({ message: 'Failed to fetch comments', error: err.message });
+    }
+    console.log(results);
+    res.status(200).json(results);
+  });
+});
+
+// Add Comment to a Thread
+app.post('/api/threads/:threadId/comments', authenticateToken, (req, res) => {
+  const { threadId } = req.params;
+  const { content } = req.body;
+  const userId = req.userId; // User's ID decoded from the JWT token
+
+  const sql = `
+    INSERT INTO Comments (Thread_ID, Content, Created_By, Created_At)
+    VALUES (?, ?, ?, NOW())
+  `;
+
+  connection.query(sql, [threadId, content, userId], (err, results) => {
+    if (err) {
+      console.error('Error inserting comment:', err);
+      return res.status(500).json({ message: 'Failed to add comment' });
+    }
+
+    res.status(200).json({ message: 'Comment added successfully' });
+  });
+});
+
+
+// Update Thread/Forum (optional)
+app.patch('/api/threads/:threadId', authenticateToken, (req, res) => {
+  const { threadId } = req.params;
+  const { title, content } = req.body;
+
+  const sql = 'UPDATE Threads SET Title = ?, Content = ? WHERE Thread_ID = ?';
+
+  connection.query(sql, [title, content, threadId], (err, results) => {
+    if (err) {
+      console.error('Error updating thread:', err);
+      return res.status(500).json({ message: 'Failed to update thread' });
+    }
+
+    res.status(200).json({ message: 'Thread updated successfully' });
   });
 });
 
