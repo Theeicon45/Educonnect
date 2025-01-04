@@ -681,31 +681,60 @@ app.get('/api/forums/:forumId/threads', authenticateToken, (req, res) => {
       return res.status(500).json({ message: 'Failed to fetch threads', error: err.message });
     }
     console.log('Forum ID:', forumId);
+    console.log('Query results:', results);
+
 
     res.status(200).json(results);
   });
 });
 
 
+
 // Create Thread
-app.post('/api/forums/:forumId/threads', authenticateToken, (req, res) => {
-  const { forumId } = req.params;
-  const { title, content } = req.body;
-  const userId = req.userId;  // User's ID decoded from the JWT token
+app.post('/api/forums/:forumId/threads', (req, res) => {
+  const token = req.headers.authorization?.split(' ')[1]; // Extract token from Authorization header
 
-  const sql = `
-    INSERT INTO Threads (Forum_ID, Title, Content, Created_By, Created_At)
-    VALUES (?, ?, ?, ?, NOW())
-  `;
+  if (!token) {
+    return res.status(401).json({ message: 'Unauthorized' });
+  }
 
-  connection.query(sql, [forumId, title, content, userId], (err, results) => {
-    if (err) {
-      console.error('Error inserting thread:', err);
-      return res.status(500).json({ message: 'Failed to create thread' });
+  try {
+    const decoded = jwt.verify(token, SECRET_KEY); // Decode JWT to get user ID
+    const userId = decoded.userId; // Extract user ID from token
+
+    const { forumId } = req.params;
+    const { title, content } = req.body;
+
+    if (!title || !content) {
+      return res.status(400).json({ message: 'Title and content are required.' });
     }
 
-    res.status(200).json({ message: 'Thread created successfully' });
-  });
+    // SQL query to insert a new thread
+    const sql = `
+      INSERT INTO Threads (Forum_ID, Title, Content, Created_By, Created_At)
+      VALUES (?, ?, ?, ?, NOW())
+    `;
+
+    connection.query(sql, [forumId, title, content, userId], (err, result) => {
+      if (err) {
+        console.error('Error creating thread:', err);
+        return res.status(500).json({ message: 'Failed to create thread' });
+      }
+
+      res.status(201).json({
+        message: 'Thread created successfully',
+        threadId: result.insertId,
+        forumId,
+        title,
+        content,
+        createdBy: userId,
+        createdAt: new Date().toISOString(),
+      });
+    });
+  } catch (error) {
+    console.error('Error verifying token:', error);
+    res.status(401).json({ message: 'Invalid or expired token' });
+  }
 });
 
 
@@ -726,24 +755,39 @@ app.get('/api/threads/:threadId/comments', authenticateToken, (req, res) => {
 
 // Add Comment to a Thread
 app.post('/api/threads/:threadId/comments', authenticateToken, (req, res) => {
-  const { threadId } = req.params;
-  const { content } = req.body;
-  const userId = req.userId; // User's ID decoded from the JWT token
+  const { threadId } = req.params; // Extract thread ID from URL parameters
+  const { content } = req.body; // Extract the comment content from request body
 
+  // Extract user ID from JWT (from the authenticateToken middleware)
+  const userId = req.user.userId; // The 'userId' field should be from the decoded JWT payload
+
+  if (!content) {
+    return res.status(400).json({ message: 'Content is required for the comment.' });
+  }
+
+  // SQL query to insert a new comment
   const sql = `
     INSERT INTO Comments (Thread_ID, Content, Created_By, Created_At)
     VALUES (?, ?, ?, NOW())
   `;
 
-  connection.query(sql, [threadId, content, userId], (err, results) => {
+  connection.query(sql, [threadId, content, userId], (err, result) => {
     if (err) {
-      console.error('Error inserting comment:', err);
+      console.error('Error adding comment:', err);
       return res.status(500).json({ message: 'Failed to add comment' });
     }
 
-    res.status(200).json({ message: 'Comment added successfully' });
+    res.status(201).json({
+      message: 'Comment added successfully',
+      commentId: result.insertId,
+      threadId,
+      content,
+      createdBy: userId,
+      createdAt: new Date().toISOString(),
+    });
   });
 });
+
 
 
 // Update Thread/Forum (optional)

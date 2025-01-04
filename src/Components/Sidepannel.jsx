@@ -13,7 +13,6 @@ import {
   FaAngleLeft,
 } from "react-icons/fa";
 import { MdSchool, MdLogout } from "react-icons/md";
-import { AiOutlineInfoCircle } from "react-icons/ai";
 import { IconBlack } from "../Utils/images";
 
 const Sidepannel = () => {
@@ -77,7 +76,6 @@ const Sidepannel = () => {
       icon: <FaFolderOpen />,
       label: "Resource Sharing",
     },
-    { to: "/HelpCenter", icon: <AiOutlineInfoCircle />, label: "Help Center" },
     { to: "/Settings", icon: <FaCog />, label: "Settings" },
   ];
 
