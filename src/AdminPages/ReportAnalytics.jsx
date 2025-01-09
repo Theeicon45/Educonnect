@@ -1,4 +1,5 @@
 import AdmissionTrend from "../Components/AdmissionTrend";
+import ExamResultsTable from "../Components/ExamResultsTable";
 import FundsSource from "../Components/FundsSource";
 import PopulationStats from "../Components/PopulationStats";
 import StudentDistribution from "../Components/studentdistribution";
@@ -22,14 +23,16 @@ const ReportAnalytics = () => {
           <AdmissionTrend />
         </div>
       </div>
-      <div className="flex items-center gap-8 ">
+      <div className="flex items-start gap-8 ">
         {/* Left */}
         <div className="w-1/3">
         
         <FundsSource/>
         </div>
         {/* RIght */}
-        <div className="w-2/3">right</div>
+        <div className="w-2/3">
+        <ExamResultsTable/>
+        </div>
       </div>
     </div>
   );

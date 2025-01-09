@@ -3,10 +3,8 @@ import cors from "cors";
 import db from "./dbConfig.js";
 import connection from "./dbConfig.js";
 import bcrypt from "bcryptjs";
-import jwt from 'jsonwebtoken';
-import authenticateToken from './authenticateToken.js';
-
-
+import jwt from "jsonwebtoken";
+import authenticateToken from "./authenticateToken.js";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -122,8 +120,7 @@ app.get("/api/applications", (req, res) => {
 });
 // Endpoint to handle login
 
-
-const SECRET_KEY = 'your-secret-key';  // Replace with a strong secret key
+const SECRET_KEY = "your-secret-key"; // Replace with a strong secret key
 
 app.post("/api/login", (req, res) => {
   const { username, password } = req.body;
@@ -132,7 +129,9 @@ app.post("/api/login", (req, res) => {
   const sql = "SELECT * FROM user_credentials WHERE Username = ?";
   connection.query(sql, [username], async (err, results) => {
     if (err) {
-      return res.status(500).json({ message: "Database error", error: err.message });
+      return res
+        .status(500)
+        .json({ message: "Database error", error: err.message });
     }
 
     // If no user is found, return an error
@@ -154,23 +153,21 @@ app.post("/api/login", (req, res) => {
 
     // If passwords match, create a JWT token
     const payload = {
-      userId: user.User_ID,  // Assuming you have User_ID in your database
-      role: user.Role,       // Assuming you have Role in your database
+      userId: user.User_ID, // Assuming you have User_ID in your database
+      role: user.Role, // Assuming you have Role in your database
     };
 
     // Create the JWT token with the payload and secret key
-    const token = jwt.sign(payload, SECRET_KEY, { expiresIn: '1h' });  // Token expires in 1 hour
+    const token = jwt.sign(payload, SECRET_KEY, { expiresIn: "1h" }); // Token expires in 1 hour
 
     // Send the token and role in the response
     res.status(200).json({
-      message: 'Login successful',
-      token: token,  // Send the JWT token in the response
-      role: user.Role  // Include the user's role in the response
+      message: "Login successful",
+      token: token, // Send the JWT token in the response
+      role: user.Role, // Include the user's role in the response
     });
   });
 });
-
-
 
 /////////////////////////////////////////////////Admission Management///////////////////////////////////
 app.post("/api/updateStatus/:id", (req, res) => {
@@ -210,37 +207,109 @@ app.post("/api/updateStatus/:id", (req, res) => {
           const application = applicationResult[0];
           const {
             Application_ID: studentID,
-            Applicant_Name: studentName,
-            Grade_Level_Applied: classGrade,
+            Applicant_Name: firstName,
+            Second_Name: secondName, // Directly use the Second_Name field from the application
+            Grade_Level_Applied: yearLevel,
+            School_ID: schoolID, // Assuming School_ID exists in the application table
           } = application;
 
-          // Insert into fees table
-          const insertFeesSQL = `
-            INSERT INTO fees 
-            (StudentID, StudentName, ClassGrade, FeeType, AmountDue, AmountPaid, DueDate, PaymentStatus)
-            VALUES (?, ?, ?, 'Tuition Fee', 35000, 0, DATE_ADD(CURDATE(), INTERVAL 30 DAY), 'Unpaid')
-          `;
+          // Generate email address
+          const email = `${firstName.toLowerCase()}.${secondName
+            .toLowerCase()
+            .replace(/\s+/g, "")}@mail.com`;
 
+          // Insert into student_record table
+          const insertStudentSQL = `
+            INSERT INTO student_record 
+            (Student_ID, School_ID, First_Name, Second_Name, Enrollment_Year, Year_Level, Term_Average_Grade, Guardian_ID, Status)
+            VALUES (?, ?, ?, ?, YEAR(CURDATE()), ?, 'N/A', ?, 'Active')
+          `;
+          const guardianID = Math.floor(Math.random() * 100000); // Mock guardian ID
           connection.query(
-            insertFeesSQL,
-            [studentID, studentName, classGrade],
-            (err, feesResult) => {
+            insertStudentSQL,
+            [studentID, schoolID, firstName, secondName, yearLevel, guardianID],
+            (err, studentInsertResult) => {
               if (err) {
-                console.error("Error inserting into fees table:", err);
+                console.error("Error inserting into student_record:", err);
                 return res.status(500).json({
-                  error: "Error inserting into fees table",
+                  error: "Error inserting into student_record",
                   details: err.message,
                 });
               }
 
-              console.log("Fees record created successfully:", feesResult);
-              res.json({
-                message:
-                  "Status updated, admission date set, and fees record created successfully.",
-              });
+              // console.log("Student record created successfully:", studentInsertResult);
+
+              // Insert into fees table
+              const insertFeesSQL = `
+                INSERT INTO fees 
+                (StudentID, StudentName, ClassGrade, FeeType, AmountDue, AmountPaid, DueDate, PaymentStatus)
+                VALUES (?, ?, ?, 'Tuition Fee', 35000, 0, DATE_ADD(CURDATE(), INTERVAL 30 DAY), 'Unpaid')
+              `;
+              connection.query(
+                insertFeesSQL,
+                [studentID, `${firstName} ${secondName}`, yearLevel],
+                (err, feesResult) => {
+                  if (err) {
+                    console.error("Error inserting into fees table:", err);
+                    return res.status(500).json({
+                      error: "Error inserting into fees table",
+                      details: err.message,
+                    });
+                  }
+
+                  // console.log("Fees record created successfully:", feesResult);
+
+                  // Insert into user_credentials table
+                  const username = `${firstName.toLowerCase()}.${secondName
+                    .toLowerCase()
+                    .replace(/\s+/g, "")}`;
+                  const defaultPassword = "password123"; // Default password
+                  bcrypt.hash(defaultPassword, 10, (err, hashedPassword) => {
+                    if (err) {
+                      console.error("Error hashing password:", err);
+                      return res.status(500).json({
+                        error: "Error creating user credentials",
+                        details: err.message,
+                      });
+                    }
+
+                    const insertCredentialsSQL = `
+                      INSERT INTO user_credentials 
+                      (Username, Password_Hash, Role, Email)
+                      VALUES (?, ?, 'student', ?)
+                    `;
+                    connection.query(
+                      insertCredentialsSQL,
+                      [username, hashedPassword, email], // Use generated email here
+                      (err, credentialsResult) => {
+                        if (err) {
+                          console.error(
+                            "Error inserting into user_credentials:",
+                            err
+                          );
+                          return res.status(500).json({
+                            error: "Error inserting into user_credentials",
+                            details: err.message,
+                          });
+                        }
+
+                        // console.log(
+                        //   "User credentials created successfully:",
+                        //   credentialsResult
+                        // );
+                        res.json({
+                          message:
+                            "Status updated, student record, fees record, and user credentials created successfully.",
+                        });
+                      }
+                    );
+                  });
+                }
+              );
             }
           );
         } else {
+          console.log("Application not found for ID:", id);
           res.status(404).json({ error: "Application not found" });
         }
       });
@@ -410,7 +479,6 @@ app.get("/api/fees", (req, res) => {
       return;
     }
     res.json(results);
-    
   });
 });
 
@@ -507,11 +575,11 @@ app.get("/api/expenseSummary", (req, res) => {
 ////////////////////////////////Communication Center//////////////
 
 // Announcement creation API
-app.post('/api/announcements', (req, res) => {
-  const token = req.headers.authorization?.split(' ')[1]; // Extract token from headers
+app.post("/api/announcements", (req, res) => {
+  const token = req.headers.authorization?.split(" ")[1]; // Extract token from headers
 
   if (!token) {
-    return res.status(401).json({ message: 'Unauthorized' });
+    return res.status(401).json({ message: "Unauthorized" });
   }
 
   try {
@@ -519,7 +587,8 @@ app.post('/api/announcements', (req, res) => {
     const decoded = jwt.verify(token, SECRET_KEY);
     const { userId } = decoded; // Get user ID from the token
 
-    const { Title, Content, Target_Audience, Target_ID, Expiry_Date } = req.body;
+    const { Title, Content, Target_Audience, Target_ID, Expiry_Date } =
+      req.body;
 
     // SQL query to insert the announcement into the database
     const sql = `
@@ -531,16 +600,18 @@ app.post('/api/announcements', (req, res) => {
       [Title, Content, Target_Audience, Target_ID, userId, Expiry_Date],
       (err, results) => {
         if (err) {
-          console.error('Error inserting announcement:', err);
-          return res.status(500).json({ message: 'Failed to create announcement' });
+          console.error("Error inserting announcement:", err);
+          return res
+            .status(500)
+            .json({ message: "Failed to create announcement" });
         }
 
-        res.status(200).json({ message: 'Announcement created successfully' });
+        res.status(200).json({ message: "Announcement created successfully" });
       }
     );
   } catch (error) {
-    console.error('Error verifying token:', error);
-    res.status(401).json({ message: 'Invalid or expired token' });
+    console.error("Error verifying token:", error);
+    res.status(401).json({ message: "Invalid or expired token" });
   }
 });
 
@@ -551,20 +622,20 @@ app.get("/api/announcements", authenticateToken, (req, res) => {
 
   connection.query(sql, (err, results) => {
     if (err) {
-      return res.status(500).json({ message: "Database error", error: err.message });
+      return res
+        .status(500)
+        .json({ message: "Database error", error: err.message });
     }
     res.status(200).json(results);
-
   });
 });
 
-
 ///////////////////////////////// Event creation
-app.post('/api/events', (req, res) => {
-  const token = req.headers.authorization?.split(' ')[1]; // Extract token from headers
+app.post("/api/events", (req, res) => {
+  const token = req.headers.authorization?.split(" ")[1]; // Extract token from headers
 
   if (!token) {
-    return res.status(401).json({ message: 'Unauthorized' });
+    return res.status(401).json({ message: "Unauthorized" });
   }
 
   try {
@@ -584,25 +655,25 @@ app.post('/api/events', (req, res) => {
       [Title, Description, Event_Date, userId],
       (err, results) => {
         if (err) {
-          console.error('Error inserting event:', err);
-          return res.status(500).json({ message: 'Failed to create event' });
+          console.error("Error inserting event:", err);
+          return res.status(500).json({ message: "Failed to create event" });
         }
 
-        res.status(200).json({ message: 'Event created successfully' });
+        res.status(200).json({ message: "Event created successfully" });
       }
     );
   } catch (error) {
-    console.error('Error verifying token:', error);
-    res.status(401).json({ message: 'Invalid or expired token' });
+    console.error("Error verifying token:", error);
+    res.status(401).json({ message: "Invalid or expired token" });
   }
 });
 
 // Fetch events
-app.get('/api/events', (req, res) => {
-  const token = req.headers.authorization?.split(' ')[1];
+app.get("/api/events", (req, res) => {
+  const token = req.headers.authorization?.split(" ")[1];
 
   if (!token) {
-    return res.status(401).json({ message: 'Unauthorized' });
+    return res.status(401).json({ message: "Unauthorized" });
   }
 
   try {
@@ -616,22 +687,21 @@ app.get('/api/events', (req, res) => {
 
     connection.query(sql, [decoded.userId, decoded.userId], (err, results) => {
       if (err) {
-        console.error('Error fetching events:', err);
-        return res.status(500).json({ message: 'Failed to fetch events' });
+        console.error("Error fetching events:", err);
+        return res.status(500).json({ message: "Failed to fetch events" });
       }
 
       res.status(200).json(results);
     });
   } catch (error) {
-    console.error('Error verifying token:', error);
-    res.status(401).json({ message: 'Invalid or expired token' });
+    console.error("Error verifying token:", error);
+    res.status(401).json({ message: "Invalid or expired token" });
   }
 });
 
-
 // FORUMS///////////////////////////////
 // Get Forums
-app.post('/api/forums', authenticateToken, (req, res) => {
+app.post("/api/forums", authenticateToken, (req, res) => {
   const { name, description } = req.body;
   const userId = req.user.userId; // Access the userId from the decoded token
 
@@ -642,60 +712,61 @@ app.post('/api/forums', authenticateToken, (req, res) => {
 
   connection.query(sql, [name, description, userId], (err, results) => {
     if (err) {
-      console.error('Error creating forum:', err);
-      return res.status(500).json({ message: 'Failed to create forum' });
+      console.error("Error creating forum:", err);
+      return res.status(500).json({ message: "Failed to create forum" });
     }
 
-    res.status(200).json({ message: 'Forum created successfully' });
+    res.status(200).json({ message: "Forum created successfully" });
   });
 });
 
 // Fetch all forums
-app.get('/api/forums', authenticateToken, (req, res) => {
+app.get("/api/forums", authenticateToken, (req, res) => {
   // The SQL query to fetch all forums ordered by creation date
   const sql = "SELECT * FROM forums ORDER BY Created_At DESC";
 
   connection.query(sql, (err, results) => {
     if (err) {
       // Handle database query error
-      console.error('Error fetching forums:', err);
+      console.error("Error fetching forums:", err);
 
-      return res.status(500).json({ message: 'Database error', error: err.message });
+      return res
+        .status(500)
+        .json({ message: "Database error", error: err.message });
     }
-   // Log the results to verify data is returned
+    // Log the results to verify data is returned
 
     // Return the fetched forums as a JSON response
     res.status(200).json(results);
   });
 });
 
-
 // Get Threads in a Forum
-app.get('/api/forums/:forumId/threads', authenticateToken, (req, res) => {
+app.get("/api/forums/:forumId/threads", authenticateToken, (req, res) => {
   const { forumId } = req.params;
 
-  const sql = 'SELECT * FROM Threads WHERE Forum_ID = ? ORDER BY Created_At DESC';
-  
+  const sql =
+    "SELECT * FROM Threads WHERE Forum_ID = ? ORDER BY Created_At DESC";
+
   connection.query(sql, [forumId], (err, results) => {
     if (err) {
-      return res.status(500).json({ message: 'Failed to fetch threads', error: err.message });
+      return res
+        .status(500)
+        .json({ message: "Failed to fetch threads", error: err.message });
     }
-    console.log('Forum ID:', forumId);
-    console.log('Query results:', results);
-
+    console.log("Forum ID:", forumId);
+    console.log("Query results:", results);
 
     res.status(200).json(results);
   });
 });
 
-
-
 // Create Thread
-app.post('/api/forums/:forumId/threads', (req, res) => {
-  const token = req.headers.authorization?.split(' ')[1]; // Extract token from Authorization header
+app.post("/api/forums/:forumId/threads", (req, res) => {
+  const token = req.headers.authorization?.split(" ")[1]; // Extract token from Authorization header
 
   if (!token) {
-    return res.status(401).json({ message: 'Unauthorized' });
+    return res.status(401).json({ message: "Unauthorized" });
   }
 
   try {
@@ -706,7 +777,9 @@ app.post('/api/forums/:forumId/threads', (req, res) => {
     const { title, content } = req.body;
 
     if (!title || !content) {
-      return res.status(400).json({ message: 'Title and content are required.' });
+      return res
+        .status(400)
+        .json({ message: "Title and content are required." });
     }
 
     // SQL query to insert a new thread
@@ -717,12 +790,12 @@ app.post('/api/forums/:forumId/threads', (req, res) => {
 
     connection.query(sql, [forumId, title, content, userId], (err, result) => {
       if (err) {
-        console.error('Error creating thread:', err);
-        return res.status(500).json({ message: 'Failed to create thread' });
+        console.error("Error creating thread:", err);
+        return res.status(500).json({ message: "Failed to create thread" });
       }
 
       res.status(201).json({
-        message: 'Thread created successfully',
+        message: "Thread created successfully",
         threadId: result.insertId,
         forumId,
         title,
@@ -732,21 +805,23 @@ app.post('/api/forums/:forumId/threads', (req, res) => {
       });
     });
   } catch (error) {
-    console.error('Error verifying token:', error);
-    res.status(401).json({ message: 'Invalid or expired token' });
+    console.error("Error verifying token:", error);
+    res.status(401).json({ message: "Invalid or expired token" });
   }
 });
 
-
 // Get Comments in a Thread
-app.get('/api/threads/:threadId/comments', authenticateToken, (req, res) => {
+app.get("/api/threads/:threadId/comments", authenticateToken, (req, res) => {
   const { threadId } = req.params;
 
-  const sql = 'SELECT * FROM Comments WHERE Thread_ID = ? ORDER BY Created_At DESC';
+  const sql =
+    "SELECT * FROM Comments WHERE Thread_ID = ? ORDER BY Created_At DESC";
 
   connection.query(sql, [threadId], (err, results) => {
     if (err) {
-      return res.status(500).json({ message: 'Failed to fetch comments', error: err.message });
+      return res
+        .status(500)
+        .json({ message: "Failed to fetch comments", error: err.message });
     }
     console.log(results);
     res.status(200).json(results);
@@ -754,7 +829,7 @@ app.get('/api/threads/:threadId/comments', authenticateToken, (req, res) => {
 });
 
 // Add Comment to a Thread
-app.post('/api/threads/:threadId/comments', authenticateToken, (req, res) => {
+app.post("/api/threads/:threadId/comments", authenticateToken, (req, res) => {
   const { threadId } = req.params; // Extract thread ID from URL parameters
   const { content } = req.body; // Extract the comment content from request body
 
@@ -762,7 +837,9 @@ app.post('/api/threads/:threadId/comments', authenticateToken, (req, res) => {
   const userId = req.user.userId; // The 'userId' field should be from the decoded JWT payload
 
   if (!content) {
-    return res.status(400).json({ message: 'Content is required for the comment.' });
+    return res
+      .status(400)
+      .json({ message: "Content is required for the comment." });
   }
 
   // SQL query to insert a new comment
@@ -773,12 +850,12 @@ app.post('/api/threads/:threadId/comments', authenticateToken, (req, res) => {
 
   connection.query(sql, [threadId, content, userId], (err, result) => {
     if (err) {
-      console.error('Error adding comment:', err);
-      return res.status(500).json({ message: 'Failed to add comment' });
+      console.error("Error adding comment:", err);
+      return res.status(500).json({ message: "Failed to add comment" });
     }
 
     res.status(201).json({
-      message: 'Comment added successfully',
+      message: "Comment added successfully",
       commentId: result.insertId,
       threadId,
       content,
@@ -788,26 +865,49 @@ app.post('/api/threads/:threadId/comments', authenticateToken, (req, res) => {
   });
 });
 
-
-
 // Update Thread/Forum (optional)
-app.patch('/api/threads/:threadId', authenticateToken, (req, res) => {
+app.patch("/api/threads/:threadId", authenticateToken, (req, res) => {
   const { threadId } = req.params;
   const { title, content } = req.body;
 
-  const sql = 'UPDATE Threads SET Title = ?, Content = ? WHERE Thread_ID = ?';
+  const sql = "UPDATE Threads SET Title = ?, Content = ? WHERE Thread_ID = ?";
 
   connection.query(sql, [title, content, threadId], (err, results) => {
     if (err) {
-      console.error('Error updating thread:', err);
-      return res.status(500).json({ message: 'Failed to update thread' });
+      console.error("Error updating thread:", err);
+      return res.status(500).json({ message: "Failed to update thread" });
     }
 
-    res.status(200).json({ message: 'Thread updated successfully' });
+    res.status(200).json({ message: "Thread updated successfully" });
   });
 });
+//////////////////////////////////Exams table/////////////////////////
+app.get('/api/exam-results', (req, res) => {
+  const sql = `
+    SELECT 
+      e.Exam_ID AS ResultID,
+      CONCAT(s.First_Name, ' ', s.Second_Name) AS StudentName,
+      sc.School_Name AS School,
+      s.Year_Level AS Grade,
+      e.Exam_Type AS ExamType,
+      e.Score,
+      e.Total_Marks AS TotalMarks
+    FROM 
+      exams e
+    JOIN 
+      student_record s ON e.Student_ID = s.Student_ID
+    JOIN 
+      school sc ON e.School_ID = sc.School_ID;
+  `;
 
-
+  db.query(sql, (err, results) => {
+    if (err) {
+      console.error('Error fetching exam results:', err);
+      return res.status(500).json({ error: 'Failed to fetch exam results' });
+    }
+    res.json(results);
+  });
+});
 
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
