@@ -5,6 +5,8 @@ import connection from "./dbConfig.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import authenticateToken from "./authenticateToken.js";
+import multer from "multer";
+import path from "path";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -882,7 +884,7 @@ app.patch("/api/threads/:threadId", authenticateToken, (req, res) => {
   });
 });
 //////////////////////////////////Exams table/////////////////////////
-app.get('/api/exam-results', (req, res) => {
+app.get("/api/exam-results", (req, res) => {
   const sql = `
     SELECT 
       e.Exam_ID AS ResultID,
@@ -902,12 +904,92 @@ app.get('/api/exam-results', (req, res) => {
 
   db.query(sql, (err, results) => {
     if (err) {
-      console.error('Error fetching exam results:', err);
-      return res.status(500).json({ error: 'Failed to fetch exam results' });
+      console.error("Error fetching exam results:", err);
+      return res.status(500).json({ error: "Failed to fetch exam results" });
     }
     res.json(results);
   });
 });
+////////////////////////////RESOURCE SHARING //////////////////////////////////////////////////////////
+
+const upload = multer({
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => {
+      const isImage = file.mimetype.startsWith("image/");
+      cb(null, isImage ? "./uploads/thumbnails" : "./uploads/media");
+    },
+    filename: (req, file, cb) => {
+      cb(null, `${Date.now()}-${file.originalname}`);
+    },
+  }),
+  fileFilter: (req, file, cb) => {
+    const allowedMimeTypes = [
+      "image/jpeg",
+      "image/png",
+      "image/jpg",
+      "video/mp4",
+      "video/x-matroska", // Added video/x-matroska for .mkv
+      "audio/mpeg",
+      "audio/mp3",
+    ];
+    console.log("MIME Type:", file.mimetype);
+    if (allowedMimeTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      console.error("Rejected File Type:", file.mimetype);
+      cb(new Error("Invalid file type!"), false);
+    }
+  },
+  limits: { fileSize: 500 * 1024 * 1024 }, // 10 MB limit
+});
+
+app.post("/api/upload-resource", authenticateToken, upload.fields([
+  { name: 'media', maxCount: 1 },
+  { name: 'thumbnail', maxCount: 1 }
+]), (req, res) => {
+  const { title, description, category, gradeLevel, subject, resourceType, additionalText } = req.body;
+  const { media, thumbnail } = req.files;
+  const userId = req.user.userId; // Extract user ID from JWT
+
+  if (!title || !description || !category || !gradeLevel || !subject || !resourceType || !media) {
+    return res.status(400).json({ message: "Missing required fields." });
+  }
+
+  // Prepare file data
+  const mediaPath = media ? media[0].path : null;
+  const thumbnailPath = thumbnail ? thumbnail[0].path : null;
+
+  const sql = `
+    INSERT INTO resources (Title, Description, Category, Grade_Level, Subject, Resource_Type, file_Path, thumbnail_Path, Additional_Text, uploaded_By, uploaded_At)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+  `;
+
+  connection.query(sql, [
+    title, description, category, gradeLevel, subject, resourceType,
+    mediaPath, thumbnailPath, additionalText || '', userId
+  ], (err, result) => {
+    if (err) {
+      console.error("Error uploading media:", err);
+      return res.status(500).json({ message: "Failed to upload media" });
+    }
+
+    res.status(201).json({
+      message: "Media uploaded successfully!",
+      mediaId: result.insertId,
+      title,
+      description,
+      category,
+      gradeLevel,
+      subject,
+      resourceType,
+      mediaPath,
+      thumbnailPath,
+      additionalText
+    });
+  });
+});
+
+
 
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);

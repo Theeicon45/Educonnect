@@ -17,7 +17,7 @@ const authenticateToken = (req, res, next) => {
       return res.status(403).json({ message: 'Invalid or expired token.' });
     }
 
-    // Attach the decoded payload (user info) to the request object
+    // // Attach the decoded payload (user info) to the request object
     // console.log('Decoded Token:', decoded);
 
     req.user = decoded;

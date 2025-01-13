@@ -136,18 +136,18 @@ const ExamResultsTable = () => {
           onChange={(value) => setFilterGrade(value)}
           allowClear
         >
-          <Option value="Grade 1"> 1</Option>
-          <Option value="Grade 2"> 2</Option>
-          <Option value="Grade 3"> 3</Option>
-          <Option value="Grade 4"> 4</Option>
-          <Option value="Grade 5"> 5</Option>
-          <Option value="Grade 6"> 6</Option>
-          <Option value="Grade 7"> 7</Option>
-          <Option value="Grade 8"> 8</Option>
-          <Option value="Grade 9"> 9</Option>
-          <Option value="Grade 10"> 10</Option>
-          <Option value="Grade 11"> 11</Option>
-          <Option value="Grade 12"> 12</Option>
+          <Option value={1}> 1</Option>
+          <Option value={2}> 2</Option>
+          <Option value={3}> 3</Option>
+          <Option value={4}> 4</Option>
+          <Option value={5}> 5</Option>
+          <Option value={6}> 6</Option>
+          <Option value={7}> 7</Option>
+          <Option value={8}> 8</Option>
+          <Option value={9}> 9</Option>
+          <Option value={10}> 10</Option>
+          <Option value={11}> 11</Option>
+          <Option value={12}> 12</Option>
         </Select>
 
         <Search
