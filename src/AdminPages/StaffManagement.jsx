@@ -1,3 +1,6 @@
+import { jwtDecode } from "jwt-decode";
+import { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import DistributionChart from "../Components/DistributionChart";
 import EmployeeCards from "../Components/EmployeeCards";
 import LeaveRequestsComponent from "../Components/LeaveRequestsComponent";
@@ -7,6 +10,26 @@ import TeacherManagement from "../Components/TeacherManagement";
 import TeacherTable from "../Components/TeacherTable";
 
 const StaffManagement = () => {
+   const navigate = useNavigate();
+
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+
+    if (!token) {
+      navigate("/login");
+      return;
+    }
+
+    try {
+      const decodedToken = jwtDecode(token); // Decode the token
+      if (decodedToken.role !== "Admin") {
+        navigate("/login"); // Redirect to login if role is not Admin
+      }
+    } catch (err) {
+      console.error("Failed to decode token:", err);
+      navigate("/login");
+    }
+  }, [navigate]);
   return (
     <div className="flex  justify-between ">
       {/* LEFT */}

@@ -14,6 +14,10 @@ import moreIcon from '/Images/more.png';
 import moreDarkIcon from '/Images/moreDark.png';
 import playing from '/Images/playing.png';
 import usericon from '/Images/User.png';
+import bio from "/Images/Biology.jpg";
+import chem from "/Images/Chem.jpg";
+import math from "/Images/Math.jpg";
+import phyc from "/Images/Physics.jpg";
 
 
 
@@ -43,3 +47,8 @@ export const more =moreIcon;
 export const moredark =moreDarkIcon;
 export const boygirl =playing;
 export const User =usericon;
+export const Biology =bio;
+export const Math =math;
+export const Physics =phyc;
+export const Chemistry =chem;
+

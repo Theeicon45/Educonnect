@@ -7,12 +7,20 @@ import jwt from "jsonwebtoken";
 import authenticateToken from "./authenticateToken.js";
 import multer from "multer";
 import path from "path";
+import { fileURLToPath } from "url";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(cors());
 app.use(express.json()); // use express.json() instead of bodyParser.json()
+
+// Protectiom/////////////////////////////////////////////////////////
+
+app.use("/api/protected-route", authenticateToken, (req, res) => {
+  res.json({ message: "This is a protected route", user: req.user });
+});
+
 
 // Endpoint to create a new application record
 app.post("/api/applications", (req, res) => {
@@ -160,7 +168,7 @@ app.post("/api/login", (req, res) => {
     };
 
     // Create the JWT token with the payload and secret key
-    const token = jwt.sign(payload, SECRET_KEY, { expiresIn: "1h" }); // Token expires in 1 hour
+    const token = jwt.sign(payload, SECRET_KEY, { expiresIn: "24h" }); // Token expires in  24hours
 
     // Send the token and role in the response
     res.status(200).json({
@@ -931,6 +939,7 @@ const upload = multer({
       "video/x-matroska", // Added video/x-matroska for .mkv
       "audio/mpeg",
       "audio/mp3",
+      "application/pdf",
     ];
     console.log("MIME Type:", file.mimetype);
     if (allowedMimeTypes.includes(file.mimetype)) {
@@ -943,52 +952,106 @@ const upload = multer({
   limits: { fileSize: 500 * 1024 * 1024 }, // 10 MB limit
 });
 
-app.post("/api/upload-resource", authenticateToken, upload.fields([
-  { name: 'media', maxCount: 1 },
-  { name: 'thumbnail', maxCount: 1 }
-]), (req, res) => {
-  const { title, description, category, gradeLevel, subject, resourceType, additionalText } = req.body;
-  const { media, thumbnail } = req.files;
-  const userId = req.user.userId; // Extract user ID from JWT
+// Get the current directory (equivalent to __dirname in CommonJS)
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
-  if (!title || !description || !category || !gradeLevel || !subject || !resourceType || !media) {
-    return res.status(400).json({ message: "Missing required fields." });
-  }
+// Serve static files from the 'uploads' folder
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
-  // Prepare file data
-  const mediaPath = media ? media[0].path : null;
-  const thumbnailPath = thumbnail ? thumbnail[0].path : null;
-
-  const sql = `
-    INSERT INTO resources (Title, Description, Category, Grade_Level, Subject, Resource_Type, file_Path, thumbnail_Path, Additional_Text, uploaded_By, uploaded_At)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
-  `;
-
-  connection.query(sql, [
-    title, description, category, gradeLevel, subject, resourceType,
-    mediaPath, thumbnailPath, additionalText || '', userId
-  ], (err, result) => {
-    if (err) {
-      console.error("Error uploading media:", err);
-      return res.status(500).json({ message: "Failed to upload media" });
-    }
-
-    res.status(201).json({
-      message: "Media uploaded successfully!",
-      mediaId: result.insertId,
+app.post(
+  "/api/upload-resource",
+  authenticateToken,
+  upload.fields([
+    { name: "media", maxCount: 1 },
+    { name: "thumbnail", maxCount: 1 },
+  ]),
+  (req, res) => {
+    const {
       title,
       description,
       category,
       gradeLevel,
       subject,
       resourceType,
-      mediaPath,
-      thumbnailPath,
-      additionalText
-    });
+      additionalText,
+    } = req.body;
+    const { media, thumbnail } = req.files;
+    const userId = req.user.userId; // Extract user ID from JWT
+
+    if (
+      !title ||
+      !description ||
+      !category ||
+      !gradeLevel ||
+      !subject ||
+      !resourceType ||
+      !media
+    ) {
+      return res.status(400).json({ message: "Missing required fields." });
+    }
+
+    // Prepare file data
+    const mediaPath = media ? media[0].path : null;
+    const thumbnailPath = thumbnail ? thumbnail[0].path : null;
+
+    const sql = `
+    INSERT INTO resources (Title, Description, Category, Grade_Level, Subject, Resource_Type, file_Path, thumbnail_Path, Additional_Text, uploaded_By, uploaded_At)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+  `;
+
+    connection.query(
+      sql,
+      [
+        title,
+        description,
+        category,
+        gradeLevel,
+        subject,
+        resourceType,
+        mediaPath,
+        thumbnailPath,
+        additionalText || "",
+        userId,
+      ],
+      (err, result) => {
+        if (err) {
+          console.error("Error uploading media:", err);
+          return res.status(500).json({ message: "Failed to upload media" });
+        }
+
+        res.status(201).json({
+          message: "Media uploaded successfully!",
+          mediaId: result.insertId,
+          title,
+          description,
+          category,
+          gradeLevel,
+          subject,
+          resourceType,
+          mediaPath,
+          thumbnailPath,
+          additionalText,
+        });
+      }
+    );
+  }
+);
+
+app.get("/api/resources/:gradeLevel", authenticateToken, (req, res) => {
+  const { gradeLevel } = req.params;
+
+  const sql = `SELECT * FROM resources WHERE grade_level = ?`;
+
+  connection.query(sql, [gradeLevel], (err, results) => {
+    if (err) {
+      console.error("Error fetching resources:", err);
+      return res.status(500).json({ message: "Failed to fetch resources" });
+    }
+
+    res.status(200).json(results);
   });
 });
-
 
 
 app.listen(PORT, () => {

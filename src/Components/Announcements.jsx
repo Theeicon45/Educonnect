@@ -42,7 +42,7 @@ const Announcements = () => {
   return (
     <div className="bg-white p-4 rounded-md">
       <div className="flex items-center justify-between">
-        <h1>Announcements</h1>
+        <h1 className='text-xl font-semibold'>Announcements</h1>
         <span className="text-xs text-gray-400">View all</span>
       </div>
       <div className="flex flex-col gap-4 mt-4">
@@ -50,7 +50,7 @@ const Announcements = () => {
           announcements.map((announcement) => (
             <div
               key={announcement.Announcement_ID} // Use Announcement_ID for unique key
-              className="bg-Orange-100 rounded-md p-4"
+              className=" odd:bg-purple-200 even:bg-yellow-200 rounded-md p-4"
             >
               <div className="flex items-center justify-between">
                 <h2 className="font-medium">{announcement.Title}</h2> {/* Use Title */}

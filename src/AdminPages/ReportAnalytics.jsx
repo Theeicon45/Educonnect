@@ -1,3 +1,6 @@
+import { jwtDecode } from "jwt-decode";
+import { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import AdmissionTrend from "../Components/AdmissionTrend";
 import ExamResultsTable from "../Components/ExamResultsTable";
 import FundsSource from "../Components/FundsSource";
@@ -5,6 +8,26 @@ import PopulationStats from "../Components/PopulationStats";
 import StudentDistribution from "../Components/studentdistribution";
 
 const ReportAnalytics = () => {
+   const navigate = useNavigate();
+
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+
+    if (!token) {
+      navigate("/login");
+      return;
+    }
+
+    try {
+      const decodedToken = jwtDecode(token); // Decode the token
+      if (decodedToken.role !== "Admin") {
+        navigate("/login"); // Redirect to login if role is not Admin
+      }
+    } catch (err) {
+      console.error("Failed to decode token:", err);
+      navigate("/login");
+    }
+  }, [navigate]);
   return (
     <div>
       <div className="  grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

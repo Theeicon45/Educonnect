@@ -34,7 +34,7 @@ const Sidepannel = () => {
 
   const navigate = useNavigate();
   const handleLogout = () => {
-    localStorage.removeItem("authToken"); // replace 'authToken' with your token or session key
+    localStorage.removeItem("token"); // replace 'authToken' with your token or session key
     navigate("/Login");
   };
 

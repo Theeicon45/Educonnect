@@ -61,13 +61,13 @@ const PerformanceSc = () => {
           />
           <Bar
             dataKey="Mock"
-            fill="#fca5a5"
+            fill="#d8b4fe"
             radius={[10, 10, 0, 0]}
             legendType="circle"
           />
           <Bar
             dataKey="KCSE"
-            fill="#67e8f9"
+            fill="#86efac"
             radius={[10, 10, 0, 0]}
             legendType="circle"
           />

@@ -47,7 +47,7 @@ const EventCalendar = () => {
         {events.length > 0 ? (
           events.map((event) => (
             <div
-              className="p-5 rounded-md border-2 border-gray-100 border-t-4 odd:border-t-tahiti-300 even:border-t-Red-300"
+              className="p-5 rounded-md border-2 border-gray-100 border-t-4 odd:border-t-green-300 even:border-t-purple-300"
               key={event.id}
             >
               <div className="flex items-center justify-between">
