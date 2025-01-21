@@ -8,6 +8,8 @@ const authenticateToken = (req, res, next) => {
 
 
   if (!token) {
+    // console.log('No token provided'); // Debugging log
+
     return res.status(401).json({ message: 'Access denied. No token provided.' });
   }
 

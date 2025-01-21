@@ -15,7 +15,7 @@ const TeacherManagement = () => {
       <Button
         
         onClick={handleOpen}
-        className="w-[200px] h-[70px] bg-white"
+        className="w-[200px] h-[70px] bg-white shadow-md"
       >
         <FaPlus />
         <span className="text-xl font-light">

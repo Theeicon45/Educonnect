@@ -29,7 +29,7 @@ const notifications = [
 
 const Notification = () => {
   return (
-    <div className="bg-white p-4 rounded-md">
+    <div className="bg-white p-4  rounded-md">
       {/* Header */}
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">Notifications</h1>
@@ -41,7 +41,7 @@ const Notification = () => {
         {notifications.map((notification) => (
           <div
             key={notification.id}
-            className={`${notification.color} rounded-md p-4`}
+            className={`${notification.color} rounded-md p-4 shadow-md`}
           >
             <div className="flex items-center justify-between">
               <h2 className="font-medium text-gray-700">{notification.title}</h2>

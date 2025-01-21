@@ -3,7 +3,7 @@ import { FaArrowUp } from "react-icons/fa6";
 
 const EmployeeCards = ({ type }) => {
   return (
-    <div className=" mt-4 odd:bg-green-100 even:bg-purple-100  flex flex-col gap-4 rounded-2xl p-4 w-[200px] h-[250px]  ">
+    <div className=" mt-4 odd:bg-green-100 even:bg-purple-100  flex flex-col gap-4 rounded-2xl p-4 w-[200px] h-[250px] shadow-md ">
       {/* Top */}
       <div className="flex items-center justify-between">
         <img src={User} alt="user" width={20} height={20} />

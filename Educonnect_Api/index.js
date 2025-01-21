@@ -8,6 +8,8 @@ import authenticateToken from "./authenticateToken.js";
 import multer from "multer";
 import path from "path";
 import { fileURLToPath } from "url";
+import fs from 'fs'     
+
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -1052,6 +1054,192 @@ app.get("/api/resources/:gradeLevel", authenticateToken, (req, res) => {
     res.status(200).json(results);
   });
 });
+
+// PROFILE VIEW ////////////////////////////////////////////////////////////
+app.get("/api/profile", authenticateToken, (req, res) => {
+  const userId = req.user?.userId; // Use 'userId' from decoded JWT (not 'User_ID')
+
+  if (!userId) {
+    return res.status(401).json({ error: "Unauthorized: User ID missing" });
+  }
+
+  const sql = `
+    SELECT 
+  CONCAT(a.First_Name, ' ', a.Second_Name) AS Name,
+  u.Username AS Username,
+  u.Email AS Email,
+  a.Role AS Role,
+  p.picture_path AS ProfilePicture
+FROM 
+  admin a
+JOIN 
+  user_credentials u ON a.User_ID = u.User_ID
+LEFT JOIN 
+  user_profile_pictures p ON a.User_ID = p.User_ID
+WHERE 
+  a.User_ID = ?;
+
+  `;
+
+  db.query(sql, [userId], (err, results) => {
+    if (err) {
+      console.error("Error fetching profile:", err);
+      return res.status(500).json({ error: "Failed to fetch profile details" });
+    }
+    if (results.length === 0) {
+      return res.status(404).json({ error: "Admin not found" });
+    }
+
+    res.json(results[0]); // Return the first result since User_ID is unique
+  });
+});
+
+// ProfilePicture////////////////////////////////////////////////////////
+const profilePicUpload = multer({
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => {
+      cb(null, "./uploads/profile_pictures"); // Directory to store profile pictures
+    },
+    filename: (req, file, cb) => {
+      cb(null, `${Date.now()}-${file.originalname}`); // Unique filename
+    },
+  }),
+  fileFilter: (req, file, cb) => {
+    const allowedMimeTypes = ["image/jpeg", "image/png", "image/jpg"];
+    if (allowedMimeTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error("Invalid file type! Only JPEG, PNG, and JPG are allowed."), false);
+    }
+  },
+});
+
+// Profile update API
+// Profile update API with deletion of previous profile picture
+
+// Profile update API with deletion of previous profile picture
+app.put("/api/update-profile", profilePicUpload.single("profilePicture"), (req, res) => {
+  // Extract token from headers and decode it
+  const token = req.header("Authorization")?.replace("Bearer ", "");
+  if (!token) {
+    return res.status(401).json({ error: "Unauthorized: No token provided" });
+  }
+
+  try {
+    const decoded = jwt.verify(token, "your-secret-key"); // Replace with your JWT secret key
+    const userId = decoded.userId;
+
+    // Extract form data
+    const { name, email } = req.body;
+
+    // Validate input
+    if (!name || !email) {
+      return res.status(400).json({ error: "Name and email are required" });
+    }
+
+    // Split the name into first and last names
+    const [firstName, ...rest] = name.split(" ");
+    const secondName = rest.join(" ");
+
+    // SQL queries
+    const updateAdminQuery = `
+      UPDATE admin 
+      SET First_Name = ?, Second_Name = ? 
+      WHERE User_ID = ?
+    `;
+    const updateUserQuery = `
+      UPDATE user_credentials
+      SET Email = ?
+      WHERE User_ID = ?
+    `;
+    const getPreviousPictureQuery = `
+      SELECT picture_path FROM user_profile_pictures 
+      WHERE user_id = ?
+    `;
+    const updatePictureQuery = `
+      UPDATE user_profile_pictures 
+      SET picture_path = ? 
+      WHERE user_id = ?
+    `;
+    const insertPictureQuery = `
+      INSERT INTO user_profile_pictures (user_id, picture_path) 
+      VALUES (?, ?)
+    `;
+
+    const picturePath = req.file
+      ? `/uploads/profile_pictures/${req.file.filename}`
+      : null;
+
+    // Perform updates
+    db.query(updateAdminQuery, [firstName, secondName, userId], (err) => {
+      if (err) {
+        console.error("Error updating admin details:", err);
+        return res.status(500).json({ error: "Failed to update admin details" });
+      }
+
+      db.query(updateUserQuery, [email, userId], (err) => {
+        if (err) {
+          console.error("Error updating user email:", err);
+          return res.status(500).json({ error: "Failed to update user email" });
+        }
+
+        if (picturePath) {
+          // Check for existing profile picture
+          db.query(getPreviousPictureQuery, [userId], (err, results) => {
+            if (err) {
+              console.error("Error fetching previous profile picture:", err);
+              return res.status(500).json({ error: "Failed to fetch previous profile picture" });
+            }
+
+            const previousPicturePath = results.length > 0 ? results[0].picture_path : null;
+
+            // Delete previous picture file if it exists
+            if (previousPicturePath) {
+              const absolutePath = `./uploads${previousPicturePath}`;
+              fs.unlink(absolutePath, (unlinkErr) => {
+                if (unlinkErr && unlinkErr.code !== "ENOENT") {
+                  console.error("Error deleting previous profile picture:", unlinkErr);
+                  // Continue updating even if the file deletion fails
+                }
+              });
+            }
+
+            // Update or insert new profile picture
+            if (results.length > 0) {
+              db.query(updatePictureQuery, [picturePath, userId], (err) => {
+                if (err) {
+                  console.error("Error updating profile picture:", err);
+                  return res.status(500).json({ error: "Failed to update profile picture" });
+                }
+
+                res.json({ message: "Profile updated successfully" });
+              });
+            } else {
+              db.query(insertPictureQuery, [userId, picturePath], (err) => {
+                if (err) {
+                  console.error("Error inserting profile picture:", err);
+                  return res.status(500).json({ error: "Failed to insert profile picture" });
+                }
+
+                res.json({ message: "Profile updated successfully" });
+              });
+            }
+          });
+        } else {
+          res.json({ message: "Profile updated successfully" });
+        }
+      });
+    });
+  } catch (error) {
+    console.error("Error updating profile:", error);
+    if (error.name === "JsonWebTokenError") {
+      return res.status(401).json({ error: "Invalid or expired token" });
+    }
+    res.status(500).json({ error: "Server error occurred during profile update" });
+  }
+});
+
+
 
 
 app.listen(PORT, () => {
