@@ -19,7 +19,7 @@ const FeesTable = () => {
           throw new Error('Failed to fetch fees data.');
         }
         const data = await response.json();
-        console.log(data);
+        // console.log(data);
         const formattedData = data.map((fee) => ({
           key: fee.FeeID,
           studentName: fee.StudentName,

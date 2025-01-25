@@ -20,7 +20,7 @@ const ProfileView = () => {
         }
   
         const data = await response.json();
-        console.log('Fetched Profile Data:', data); // Add this line to check the response structure
+        // console.log('Fetched Profile Data:', data); // Add this line to check the response structure
         setProfile(data);
       } catch (error) {
         console.error('Error fetching profile:', error);

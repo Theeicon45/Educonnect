@@ -8,17 +8,17 @@ import FeesTable from "../Components/FeesTable";
 const FinanceManagement = () => {
    const navigate = useNavigate();
 
-  useEffect(() => {
+   useEffect(() => {
     const token = localStorage.getItem("token");
-
+  
     if (!token) {
       navigate("/login");
       return;
     }
-
+  
     try {
       const decodedToken = jwtDecode(token); // Decode the token
-      if (decodedToken.role !== "Admin") {
+      if (decodedToken.role.toLowerCase() !== "admin") {
         navigate("/login"); // Redirect to login if role is not Admin
       }
     } catch (err) {
@@ -26,6 +26,7 @@ const FinanceManagement = () => {
       navigate("/login");
     }
   }, [navigate]);
+  
   return (
     <div>
       <div className=" flex items-center w-full my-4">

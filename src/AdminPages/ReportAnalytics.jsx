@@ -10,17 +10,17 @@ import StudentDistribution from "../Components/studentdistribution";
 const ReportAnalytics = () => {
    const navigate = useNavigate();
 
-  useEffect(() => {
+   useEffect(() => {
     const token = localStorage.getItem("token");
-
+  
     if (!token) {
       navigate("/login");
       return;
     }
-
+  
     try {
       const decodedToken = jwtDecode(token); // Decode the token
-      if (decodedToken.role !== "Admin") {
+      if (decodedToken.role.toLowerCase() !== "admin") {
         navigate("/login"); // Redirect to login if role is not Admin
       }
     } catch (err) {
@@ -28,6 +28,7 @@ const ReportAnalytics = () => {
       navigate("/login");
     }
   }, [navigate]);
+  
   return (
     <div>
       <div className="  grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

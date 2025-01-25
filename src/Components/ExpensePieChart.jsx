@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts";
+import Loader from 'react-loaders'; // Import the Loader component
 
 const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#FF6666"];
 
@@ -33,7 +34,11 @@ const ExpensePieChart = () => {
   };
 
   if (data.length === 0) {
-    return <div>Loading data...</div>;
+    return (
+      <div className="flex justify-center items-center w-full h-full">
+        <Loader type="line-spin-fade-loader" />
+      </div>
+    );
   }
 
   return (

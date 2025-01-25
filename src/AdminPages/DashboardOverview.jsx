@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { jwtDecode } from "jwt-decode";
+import '../styles/loader.scss';  // Import your SCSS file here
 
 import Announcements from "../Components/Announcements";
 import CountChart from "../Components/CountChart";
@@ -14,15 +15,15 @@ const DashboardOverview = () => {
 
   useEffect(() => {
     const token = localStorage.getItem("token");
-
+  
     if (!token) {
       navigate("/login");
       return;
     }
-
+  
     try {
       const decodedToken = jwtDecode(token); // Decode the token
-      if (decodedToken.role !== "Admin") {
+      if (decodedToken.role.toLowerCase() !== "admin") {
         navigate("/login"); // Redirect to login if role is not Admin
       }
     } catch (err) {
@@ -30,6 +31,7 @@ const DashboardOverview = () => {
       navigate("/login");
     }
   }, [navigate]);
+  
 
   return (
     <div className="flex gap-4 p-4 md:flex-row">

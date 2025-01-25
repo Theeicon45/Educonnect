@@ -8,8 +8,7 @@ import authenticateToken from "./authenticateToken.js";
 import multer from "multer";
 import path from "path";
 import { fileURLToPath } from "url";
-import fs from 'fs'     
-
+import fs from "fs";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -22,7 +21,6 @@ app.use(express.json()); // use express.json() instead of bodyParser.json()
 app.use("/api/protected-route", authenticateToken, (req, res) => {
   res.json({ message: "This is a protected route", user: req.user });
 });
-
 
 // Endpoint to create a new application record
 app.post("/api/applications", (req, res) => {
@@ -1109,7 +1107,10 @@ const profilePicUpload = multer({
     if (allowedMimeTypes.includes(file.mimetype)) {
       cb(null, true);
     } else {
-      cb(new Error("Invalid file type! Only JPEG, PNG, and JPG are allowed."), false);
+      cb(
+        new Error("Invalid file type! Only JPEG, PNG, and JPG are allowed."),
+        false
+      );
     }
   },
 });
@@ -1118,128 +1119,579 @@ const profilePicUpload = multer({
 // Profile update API with deletion of previous profile picture
 
 // Profile update API with deletion of previous profile picture
-app.put("/api/update-profile", profilePicUpload.single("profilePicture"), (req, res) => {
-  // Extract token from headers and decode it
-  const token = req.header("Authorization")?.replace("Bearer ", "");
-  if (!token) {
-    return res.status(401).json({ error: "Unauthorized: No token provided" });
-  }
-
-  try {
-    const decoded = jwt.verify(token, "your-secret-key"); // Replace with your JWT secret key
-    const userId = decoded.userId;
-
-    // Extract form data
-    const { name, email } = req.body;
-
-    // Validate input
-    if (!name || !email) {
-      return res.status(400).json({ error: "Name and email are required" });
+app.put(
+  "/api/update-profile",
+  profilePicUpload.single("profilePicture"),
+  (req, res) => {
+    // Extract token from headers and decode it
+    const token = req.header("Authorization")?.replace("Bearer ", "");
+    if (!token) {
+      return res.status(401).json({ error: "Unauthorized: No token provided" });
     }
 
-    // Split the name into first and last names
-    const [firstName, ...rest] = name.split(" ");
-    const secondName = rest.join(" ");
+    try {
+      const decoded = jwt.verify(token, "your-secret-key"); // Replace with your JWT secret key
+      const userId = decoded.userId;
 
-    // SQL queries
-    const updateAdminQuery = `
+      // Extract form data
+      const { name, email } = req.body;
+
+      // Validate input
+      if (!name || !email) {
+        return res.status(400).json({ error: "Name and email are required" });
+      }
+
+      // Split the name into first and last names
+      const [firstName, ...rest] = name.split(" ");
+      const secondName = rest.join(" ");
+
+      // SQL queries
+      const updateAdminQuery = `
       UPDATE admin 
       SET First_Name = ?, Second_Name = ? 
       WHERE User_ID = ?
     `;
-    const updateUserQuery = `
+      const updateUserQuery = `
       UPDATE user_credentials
       SET Email = ?
       WHERE User_ID = ?
     `;
-    const getPreviousPictureQuery = `
+      const getPreviousPictureQuery = `
       SELECT picture_path FROM user_profile_pictures 
       WHERE user_id = ?
     `;
-    const updatePictureQuery = `
+      const updatePictureQuery = `
       UPDATE user_profile_pictures 
       SET picture_path = ? 
       WHERE user_id = ?
     `;
-    const insertPictureQuery = `
+      const insertPictureQuery = `
       INSERT INTO user_profile_pictures (user_id, picture_path) 
       VALUES (?, ?)
     `;
 
-    const picturePath = req.file
-      ? `/uploads/profile_pictures/${req.file.filename}`
-      : null;
+      const picturePath = req.file
+        ? `/uploads/profile_pictures/${req.file.filename}`
+        : null;
 
-    // Perform updates
-    db.query(updateAdminQuery, [firstName, secondName, userId], (err) => {
+      // Perform updates
+      db.query(updateAdminQuery, [firstName, secondName, userId], (err) => {
+        if (err) {
+          console.error("Error updating admin details:", err);
+          return res
+            .status(500)
+            .json({ error: "Failed to update admin details" });
+        }
+
+        db.query(updateUserQuery, [email, userId], (err) => {
+          if (err) {
+            console.error("Error updating user email:", err);
+            return res
+              .status(500)
+              .json({ error: "Failed to update user email" });
+          }
+
+          if (picturePath) {
+            // Check for existing profile picture
+            db.query(getPreviousPictureQuery, [userId], (err, results) => {
+              if (err) {
+                console.error("Error fetching previous profile picture:", err);
+                return res
+                  .status(500)
+                  .json({ error: "Failed to fetch previous profile picture" });
+              }
+
+              const previousPicturePath =
+                results.length > 0 ? results[0].picture_path : null;
+
+              // Delete previous picture file if it exists
+              if (previousPicturePath) {
+                const absolutePath = `./uploads${previousPicturePath}`;
+                fs.unlink(absolutePath, (unlinkErr) => {
+                  if (unlinkErr && unlinkErr.code !== "ENOENT") {
+                    console.error(
+                      "Error deleting previous profile picture:",
+                      unlinkErr
+                    );
+                    // Continue updating even if the file deletion fails
+                  }
+                });
+              }
+
+              // Update or insert new profile picture
+              if (results.length > 0) {
+                db.query(updatePictureQuery, [picturePath, userId], (err) => {
+                  if (err) {
+                    console.error("Error updating profile picture:", err);
+                    return res
+                      .status(500)
+                      .json({ error: "Failed to update profile picture" });
+                  }
+
+                  res.json({ message: "Profile updated successfully" });
+                });
+              } else {
+                db.query(insertPictureQuery, [userId, picturePath], (err) => {
+                  if (err) {
+                    console.error("Error inserting profile picture:", err);
+                    return res
+                      .status(500)
+                      .json({ error: "Failed to insert profile picture" });
+                  }
+
+                  res.json({ message: "Profile updated successfully" });
+                });
+              }
+            });
+          } else {
+            res.json({ message: "Profile updated successfully" });
+          }
+        });
+      });
+    } catch (error) {
+      console.error("Error updating profile:", error);
+      if (error.name === "JsonWebTokenError") {
+        return res.status(401).json({ error: "Invalid or expired token" });
+      }
+      res
+        .status(500)
+        .json({ error: "Server error occurred during profile update" });
+    }
+  }
+);
+
+// Admin creation/////////////////////////////////
+
+app.post("/api/admins", (req, res) => {
+  const { First_Name, Second_Name, Email, Role } = req.body;
+
+  // Input validation
+  if (!First_Name || !Second_Name || !Email || !Role) {
+    return res.status(400).json({ message: "All fields are required." });
+  }
+
+  // Check if email already exists
+  const checkEmailSQL = "SELECT * FROM user_credentials WHERE Email = ?";
+  db.query(checkEmailSQL, [Email], (err, results) => {
+    if (err) {
+      console.error("Error checking email:", err);
+      return res.status(500).json({ message: "Database error." });
+    }
+
+    if (results.length > 0) {
+      return res.status(400).json({ message: "Email is already in use." });
+    }
+
+    // Generate default username and password
+    const username = `${First_Name.toLowerCase()}.${Second_Name.toLowerCase()}`;
+    const defaultPassword = "password123";
+
+    // Hash the password
+    bcrypt.hash(defaultPassword, 10, (err, hashedPassword) => {
       if (err) {
-        console.error("Error updating admin details:", err);
-        return res.status(500).json({ error: "Failed to update admin details" });
+        console.error("Error hashing password:", err);
+        return res.status(500).json({ message: "Error creating credentials." });
       }
 
-      db.query(updateUserQuery, [email, userId], (err) => {
-        if (err) {
-          console.error("Error updating user email:", err);
-          return res.status(500).json({ error: "Failed to update user email" });
-        }
+      // Insert into user_credentials table
+      const insertCredentialsSQL = `
+        INSERT INTO user_credentials (Username, Password_Hash, Role, Email)
+        VALUES (?, ?, ?, ?)
+      `;
+      const credentialsValues = [
+        username,
+        hashedPassword,
+        Role.toLowerCase(),
+        Email,
+      ];
+      db.query(
+        insertCredentialsSQL,
+        credentialsValues,
+        (err, credentialsResult) => {
+          if (err) {
+            console.error("Error inserting credentials:", err);
+            return res
+              .status(500)
+              .json({ message: "Error adding user credentials." });
+          }
 
-        if (picturePath) {
-          // Check for existing profile picture
-          db.query(getPreviousPictureQuery, [userId], (err, results) => {
+          // Get the inserted User_ID
+          const userID = credentialsResult.insertId;
+
+          // Insert admin data into the admin table
+          const insertAdminSQL = `
+          INSERT INTO admin (User_ID, First_Name, Second_Name, Role, Created_At)
+          VALUES (?, ?, ?, ?, NOW())
+        `;
+          const adminValues = [userID, First_Name, Second_Name, Role];
+          db.query(insertAdminSQL, adminValues, (err, adminResult) => {
             if (err) {
-              console.error("Error fetching previous profile picture:", err);
-              return res.status(500).json({ error: "Failed to fetch previous profile picture" });
+              console.error("Error inserting admin:", err);
+              return res.status(500).json({ message: "Error adding admin." });
             }
 
-            const previousPicturePath = results.length > 0 ? results[0].picture_path : null;
-
-            // Delete previous picture file if it exists
-            if (previousPicturePath) {
-              const absolutePath = `./uploads${previousPicturePath}`;
-              fs.unlink(absolutePath, (unlinkErr) => {
-                if (unlinkErr && unlinkErr.code !== "ENOENT") {
-                  console.error("Error deleting previous profile picture:", unlinkErr);
-                  // Continue updating even if the file deletion fails
-                }
-              });
-            }
-
-            // Update or insert new profile picture
-            if (results.length > 0) {
-              db.query(updatePictureQuery, [picturePath, userId], (err) => {
-                if (err) {
-                  console.error("Error updating profile picture:", err);
-                  return res.status(500).json({ error: "Failed to update profile picture" });
-                }
-
-                res.json({ message: "Profile updated successfully" });
-              });
-            } else {
-              db.query(insertPictureQuery, [userId, picturePath], (err) => {
-                if (err) {
-                  console.error("Error inserting profile picture:", err);
-                  return res.status(500).json({ error: "Failed to insert profile picture" });
-                }
-
-                res.json({ message: "Profile updated successfully" });
-              });
-            }
+            // Respond with success
+            res.status(201).json({
+              message: "Admin added successfully",
+              adminID: adminResult.insertId,
+              username,
+              defaultPassword,
+            });
           });
-        } else {
-          res.json({ message: "Profile updated successfully" });
         }
-      });
+      );
     });
-  } catch (error) {
-    console.error("Error updating profile:", error);
-    if (error.name === "JsonWebTokenError") {
-      return res.status(401).json({ error: "Invalid or expired token" });
-    }
-    res.status(500).json({ error: "Server error occurred during profile update" });
-  }
+  });
 });
 
+// SCHOOL CREATION////////////////////////////////////////////////////////////////////
+app.post("/api/schools", (req, res) => {
+  const {
+    School_Name,
+    Location,
+    Address,
+    Contact_Number,
+    Email,
+    Principal_Name,
+  } = req.body;
 
+  // Validation
+  if (
+    !School_Name ||
+    !Location ||
+    !Address ||
+    !Contact_Number ||
+    !Email ||
+    !Principal_Name
+  ) {
+    return res.status(400).json({ message: "All fields are required." });
+  }
+
+  // SQL query to insert school data
+  const sql = `
+    INSERT INTO school (
+      School_Name, Location, Address, Contact_Number, Email, Principal_Name
+    ) VALUES (?, ?, ?, ?, ?, ?)
+  `;
+  const values = [
+    School_Name,
+    Location,
+    Address,
+    Contact_Number,
+    Email,
+    Principal_Name,
+  ];
+
+  // Execute the query
+  db.query(sql, values, (err, result) => {
+    if (err) {
+      console.error("Error creating school:", err);
+      return res.status(500).json({
+        message: "An error occurred while creating the school.",
+        error: err.message,
+      });
+    }
+
+    res.status(201).json({
+      message: "School created successfully!",
+      School_ID: result.insertId,
+    });
+  });
+});
+
+// Not Teaching Staff/////////////////////////////////////////////
+app.post("/api/non-teaching-staff", (req, res) => {
+  const {
+    First_Name,
+    Last_Name,
+    Position,
+    Contact_Info,
+    Department,
+    School_Name,
+  } = req.body;
+
+  // Input validation
+  if (
+    !First_Name ||
+    !Last_Name ||
+    !Position ||
+    !Contact_Info ||
+    !Department ||
+    !School_Name
+  ) {
+    return res.status(400).json({ message: "All fields are required." });
+  }
+
+  // Generate the email from First_Name and Last_Name
+  const email = `${First_Name.toLowerCase()}.${Last_Name.toLowerCase()}@mail.com`;
+
+  // Check if email already exists in user_credentials table
+  const checkEmailSQL = "SELECT * FROM user_credentials WHERE Email = ?";
+  db.query(checkEmailSQL, [email], (err, results) => {
+    if (err) {
+      console.error("Error checking email:", err);
+      return res.status(500).json({ message: "Database error." });
+    }
+
+    if (results.length > 0) {
+      return res.status(400).json({ message: "Email is already in use." });
+    }
+
+    // Generate default username for non-teaching staff
+    const username = `${First_Name.toLowerCase()}.${Last_Name.toLowerCase()}`;
+
+    // Generate default password for the non-teaching staff
+    const defaultPassword = "password123";
+
+    // Hash the password
+    bcrypt.hash(defaultPassword, 10, (err, hashedPassword) => {
+      if (err) {
+        console.error("Error hashing password:", err);
+        return res.status(500).json({ message: "Error creating credentials." });
+      }
+
+      // Insert into user_credentials table
+      const insertCredentialsSQL = `
+        INSERT INTO user_credentials (Username, Password_Hash, Role, Email)
+        VALUES (?, ?, ?, ?)
+      `;
+      const credentialsValues = [
+        username,
+        hashedPassword,
+        "Non-Teaching",
+        email,
+      ];
+      db.query(
+        insertCredentialsSQL,
+        credentialsValues,
+        (err, credentialsResult) => {
+          if (err) {
+            console.error("Error inserting credentials:", err);
+            return res
+              .status(500)
+              .json({ message: "Error adding user credentials." });
+          }
+
+          // Find the School_ID based on the selected school name
+          const selectSchoolSQL =
+            "SELECT School_ID FROM school WHERE School_Name = ?";
+          db.query(selectSchoolSQL, [School_Name], (err, schoolResults) => {
+            if (err) {
+              console.error("Error fetching school:", err);
+              return res
+                .status(500)
+                .json({ message: "Error fetching school." });
+            }
+
+            if (schoolResults.length === 0) {
+              return res.status(400).json({ message: "School not found." });
+            }
+
+            const schoolID = schoolResults[0].School_ID;
+
+            // Insert non-teaching staff data into the non_teaching_staff table without User_ID
+            const insertNonTeachingStaffSQL = `
+            INSERT INTO non_teaching_staff (First_Name, Last_Name, Position, Contact_Info, Department, School_ID, Created_At)
+            VALUES (?, ?, ?, ?, ?, ?, NOW())
+          `;
+            const nonTeachingStaffValues = [
+              First_Name,
+              Last_Name,
+              Position,
+              Contact_Info,
+              Department,
+              schoolID,
+            ];
+            db.query(
+              insertNonTeachingStaffSQL,
+              nonTeachingStaffValues,
+              (err, result) => {
+                if (err) {
+                  console.error("Error inserting non-teaching staff:", err);
+                  return res
+                    .status(500)
+                    .json({ message: "Error adding non-teaching staff." });
+                }
+
+                // Respond with success
+                res.status(201).json({
+                  message: "Non-Teaching Staff added successfully",
+                  nonTeachingStaffID: result.insertId,
+                  username,
+                  defaultPassword,
+                  email, // Include the generated email in the response
+                });
+              }
+            );
+          });
+        }
+      );
+    });
+  });
+});
+
+// Usercards daynamics////////////////////
+app.get("/api/student-count", (req, res) => {
+  db.query("SELECT COUNT(*) AS total FROM student_record", (err, results) => {
+    if (err) {
+      console.error("Error fetching student count:", err);
+      return res.status(500).json({ message: "Database error." });
+    }
+    res.json(results[0].total);
+  });
+});
+
+// Route to get total teacher count (from 'teacher' table)
+app.get("/api/teacher-count", (req, res) => {
+  db.query("SELECT COUNT(*) AS total FROM teacher", (err, results) => {
+    if (err) {
+      console.error("Error fetching teacher count:", err);
+      return res.status(500).json({ message: "Database error." });
+    }
+    res.json(results[0].total);
+  });
+});
+
+// Route to get total parent count (from 'application' table where status is 'accepted')
+app.get("/api/parent-count", (req, res) => {
+  db.query(
+    "SELECT COUNT(*) AS total FROM application WHERE status = 'accepted'",
+    (err, results) => {
+      if (err) {
+        console.error("Error fetching parent count:", err);
+        return res.status(500).json({ message: "Database error." });
+      }
+      res.json(results[0].total);
+    }
+  );
+});
+
+// Route to get total staff count (from 'non_teaching_staff' table)
+app.get("/api/staff-count", (req, res) => {
+  db.query(
+    "SELECT COUNT(*) AS total FROM non_teaching_staff",
+    (err, results) => {
+      if (err) {
+        console.error("Error fetching staff count:", err);
+        return res.status(500).json({ message: "Database error." });
+      }
+      res.json(results[0].total);
+    }
+  );
+});
+
+// Chartcount//////////////////////////////////
+app.get("/api/student-gender-count", (req, res) => {
+  const sql = `
+    SELECT gender, COUNT(*) as count
+    FROM application
+    WHERE status = 'accepted' AND (Gender = 'Male' OR Gender = 'Female')
+    GROUP BY Gender
+  `;
+
+  db.query(sql, (err, results) => {
+    if (err) {
+      console.error("Error fetching student gender count:", err);
+      return res.status(500).json({ message: "Database error." });
+    }
+
+    // Format results to match the frontend structure
+    const genderData = results.reduce(
+      (acc, row) => {
+        if (row.gender === "Male") {
+          acc.boys = row.count;
+        } else if (row.gender === "Female") {
+          acc.girls = row.count;
+        }
+        return acc;
+      },
+      { boys: 0, girls: 0 }
+    );
+
+    res.json(genderData);
+  });
+});
+// PopulaionChart//////////////////////////////////////////
+
+// Admins Count Route
+app.get("/api/admin-count", (req, res) => {
+  db.query("SELECT COUNT(*) AS total FROM admin", (err, results) => {
+    if (err) {
+      console.error("Error fetching admin count:", err);
+      return res.status(500).json({ message: "Database error." });
+    }
+    res.json({ count: results[0].total });
+  });
+});
+
+// Students Count Route
+app.get("/api/student-counter", (req, res) => {
+  db.query(
+    'SELECT COUNT(*) AS total FROM student_record WHERE Status = "Active"',
+    (err, results) => {
+      if (err) {
+        console.error("Error fetching student count:", err);
+        return res.status(500).json({ message: "Database error." });
+      }
+      res.json({ count: results[0].total });
+    }
+  );
+});
+
+// Teachers Count Route
+app.get("/api/teacher-counter", (req, res) => {
+  db.query('SELECT COUNT(*) AS total FROM teacher WHERE Status = "Active"', (err, results) => {
+    if (err) {
+      console.error("Error fetching teacher count:", err);
+      return res.status(500).json({ message: "Database error." });
+    }
+    res.json({ count: results[0].total });
+  });
+});
+
+// Non-Teaching Staff Count Route
+app.get("/api/non-teaching-staff-count", (req, res) => {
+  db.query(
+    "SELECT COUNT(*) AS total FROM non_teaching_staff",
+    (err, results) => {
+      if (err) {
+        console.error("Error fetching non-teaching staff count:", err);
+        return res.status(500).json({ message: "Database error." });
+      }
+      res.json({ count: results[0].total });
+    }
+  );
+});
+
+// STUDENT DISTRIBUTION////////////////////////////
+// Gender Distribution Data Route
+app.get("/api/gender-distribution", (req, res) => {
+  const query = `
+    SELECT 
+      s.School_Name AS school_name,  -- Replace 'School_Name' with the actual column name for the school's name
+      COUNT(CASE WHEN sr.gender = 'Male' THEN 1 END) AS boys,
+      COUNT(CASE WHEN sr.gender = 'Female' THEN 1 END) AS girls
+    FROM 
+      school s
+    LEFT JOIN 
+      student_record sr
+    ON 
+      s.School_ID = sr.School_ID
+    GROUP BY 
+      s.School_Name  -- Match the corrected column name here as well
+    ORDER BY 
+      s.School_Name;
+  `;
+
+  db.query(query, (err, results) => {
+    if (err) {
+      console.error("Error fetching gender distribution data:", err);
+      return res.status(500).json({ message: "Database error." });
+    }
+    res.json(results);
+  });
+});
+  
 
 
 app.listen(PORT, () => {

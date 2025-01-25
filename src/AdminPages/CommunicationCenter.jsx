@@ -8,17 +8,17 @@ import EventManager from "../Components/EventManager";
 const CommunicationCenter = () => {
    const navigate = useNavigate();
 
-  useEffect(() => {
+   useEffect(() => {
     const token = localStorage.getItem("token");
-
+  
     if (!token) {
       navigate("/login");
       return;
     }
-
+  
     try {
       const decodedToken = jwtDecode(token); // Decode the token
-      if (decodedToken.role !== "Admin") {
+      if (decodedToken.role.toLowerCase() !== "admin") {
         navigate("/login"); // Redirect to login if role is not Admin
       }
     } catch (err) {
@@ -26,6 +26,7 @@ const CommunicationCenter = () => {
       navigate("/login");
     }
   }, [navigate]);
+  
   return (
     <div className="">
       <div className="flex items-center w-full">

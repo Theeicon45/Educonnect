@@ -1,0 +1,16 @@
+/* src/styles/loader.scss */
+
+/* Set the primary brand color */
+$primary-color: #6b7280; // Replace with your primary brand color
+
+/* Import the line-spin-fade-loader animation */
+@use 'loaders.css/src/animations/line-spin-fade-loader.scss';
+
+/* Custom loader styles */
+.loader-hidden {
+  display: none;
+}
+
+.loader-active {
+  display: block;
+}

@@ -1,27 +1,46 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { RadialBarChart, RadialBar, ResponsiveContainer } from "recharts";
 import { boygirl, moredark } from "../Utils/images";
 
-const data = [
-  {
-    name: "Total",
-    count: 100,
-    fill: "white",
-  },
-  {
-    name: "Girls",
-    count: 50,
-    fill: "#d8b4fe",
-  },
-  {
-    name: "Boys",
-    count: 50,
-    fill: "#bbf7d0",
-  },
-];
-
 const CountChart = () => {
+  const [boysCount, setBoysCount] = useState(0);
+  const [girlsCount, setGirlsCount] = useState(0);
+
+  useEffect(() => {
+    // Fetch gender count from the API
+    fetch("http://localhost:3000/api/student-gender-count")
+      .then((response) => response.json())
+      .then((data) => {
+        setBoysCount(data.boys || 0);
+        setGirlsCount(data.girls || 0);
+      })
+      .catch((error) => {
+        console.error("Error fetching gender count:", error);
+      });
+  }, []);
+
+  const totalCount = boysCount + girlsCount;
+
+  const data = [
+    {
+      name: "Total",
+      count: totalCount,
+      fill: "white",
+    },
+    {
+      name: "Girls",
+      count: girlsCount,
+      fill: "#d8b4fe",
+    },
+    {
+      name: "Boys",
+      count: boysCount,
+      fill: "#bbf7d0",
+    },
+  ];
+
   return (
     <div className="bg-white rounded-xl w-full h-full p-4">
       {/* TITLE */}
@@ -45,24 +64,23 @@ const CountChart = () => {
         </ResponsiveContainer>
         <img
           src={boygirl}
-          alt=""
+          alt="Gender Icon"
           width={50}
           height={50}
           className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
         />
       </div>
       {/* BOTTOM */}
-
       <div className="flex justify-center gap-16">
         <div className="flex flex-col gap-1">
           <div className="w-5 h-5 bg-green-200 rounded-full" />
-          <h1 className="font-bold">1,234</h1>
-          <h2 className="text-xs text-gray-300">Boys (55%)</h2>
+          <h1 className="font-bold">{boysCount}</h1>
+          <h2 className="text-xs text-gray-300">Boys ({((boysCount / totalCount) * 100).toFixed(2)}%)</h2>
         </div>
         <div className="flex flex-col gap-1">
           <div className="w-5 h-5 bg-purple-200 rounded-full" />
-          <h1 className="font-bold">1,234</h1>
-          <h2 className="text-xs text-gray-300">Girls (45%)</h2>
+          <h1 className="font-bold">{girlsCount}</h1>
+          <h2 className="text-xs text-gray-300">Girls ({((girlsCount / totalCount) * 100).toFixed(2)}%)</h2>
         </div>
       </div>
     </div>
