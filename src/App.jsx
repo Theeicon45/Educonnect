@@ -19,6 +19,13 @@ import ReportAnalytics from './AdminPages/ReportAnalytics';
 import CommunicationCenter from './AdminPages/CommunicationCenter';
 import StudentManagement from './AdminPages/StudentManagement';
 import FinanceManagement from './AdminPages/FinanceManagement';
+import TeachersLayout from './TeacherComponents/TeachersLayout';
+import TeachersDash from './TeacherPages/TeachersDash';
+import ClassManagement from './TeacherPages/ClassManagement';
+import GradeBook from './TeacherPages/GradeBook';
+import CommunicationHub from './TeacherPages/CommunicationHub';
+import ResourceCenter from './TeacherPages/ResourceCenter';
+import TeachersSettings from './TeacherPages/TeachersSettings';
 
 
 
@@ -46,6 +53,15 @@ const App = () => {
       <Route path="/DashboardOverview" element={<DashboardOverview />} />
       <Route path="/ResourceSharing" element={<ResourceSharing />} />
       <Route path="/Settings" element={<Settings />} />
+
+        </Route>
+      <Route element={<TeachersLayout />}>
+            <Route path="/TeachersDash" element={<TeachersDash/>} />
+      <Route path="/ClassManagement" element={<ClassManagement />} />
+      <Route path="/GradeBook" element={<GradeBook />} />
+      <Route path="/CommunicationHub" element={<CommunicationHub/>} />
+      <Route path="/ResourceCenter" element={<ResourceCenter />} />
+      <Route path="/TeachersSettings" element={<TeachersSettings />} />
 
         </Route>
       

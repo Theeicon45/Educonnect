@@ -692,7 +692,7 @@ app.get("/api/events", (req, res) => {
     const sql = `
       SELECT Event_id, Title, Description, Event_Date
       FROM Events
-      WHERE Created_By = ? OR ? = 1
+      
     `;
 
     connection.query(sql, [decoded.userId, decoded.userId], (err, results) => {
@@ -1640,13 +1640,16 @@ app.get("/api/student-counter", (req, res) => {
 
 // Teachers Count Route
 app.get("/api/teacher-counter", (req, res) => {
-  db.query('SELECT COUNT(*) AS total FROM teacher WHERE Status = "Active"', (err, results) => {
-    if (err) {
-      console.error("Error fetching teacher count:", err);
-      return res.status(500).json({ message: "Database error." });
+  db.query(
+    'SELECT COUNT(*) AS total FROM teacher WHERE Status = "Active"',
+    (err, results) => {
+      if (err) {
+        console.error("Error fetching teacher count:", err);
+        return res.status(500).json({ message: "Database error." });
+      }
+      res.json({ count: results[0].total });
     }
-    res.json({ count: results[0].total });
-  });
+  );
 });
 
 // Non-Teaching Staff Count Route
@@ -1691,8 +1694,6 @@ app.get("/api/gender-distribution", (req, res) => {
     res.json(results);
   });
 });
-  
-
 
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);

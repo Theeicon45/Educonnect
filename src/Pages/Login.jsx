@@ -38,7 +38,7 @@ const Login = () => {
         if (role.toLowerCase() === 'admin') {
           navigate('/DashboardOverview');
       } else if (role.toLowerCase() === 'teacher') {
-          navigate('/teacherspage');
+          navigate('/TeachersDash');
       } else if (role.toLowerCase() === 'student') {
           navigate('/studentpage');
       }
