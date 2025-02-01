@@ -1,14 +1,14 @@
+import React from "react";
 import EventCalendar from "../Components/EventCalendar";
 import Announcements from "../Components/Announcements";
 import WelcomeComponent from "../TeacherComponents/WelcomeComponent";
 
-const TeachersDash = () => {
+const StudentDashboard = () => {
   return (
     <div className="flex gap-4 p-4 md:flex-row">
       {/* Left */}
       <div className="w-full lg:w-2/3 flex flex-col gap-8">
-        <WelcomeComponent />
-      
+      <WelcomeComponent/>
       </div>
       {/* Right */}
       <div className="w-full lg:w-1/3 flex flex-col gap-8">
@@ -19,4 +19,4 @@ const TeachersDash = () => {
   );
 };
 
-export default TeachersDash;
+export default StudentDashboard;

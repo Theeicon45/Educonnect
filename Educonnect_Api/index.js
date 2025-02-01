@@ -247,8 +247,6 @@ app.post("/api/updateStatus/:id", (req, res) => {
                 });
               }
 
-              // console.log("Student record created successfully:", studentInsertResult);
-
               // Insert into fees table
               const insertFeesSQL = `
                 INSERT INTO fees 
@@ -266,8 +264,6 @@ app.post("/api/updateStatus/:id", (req, res) => {
                       details: err.message,
                     });
                   }
-
-                  // console.log("Fees record created successfully:", feesResult);
 
                   // Insert into user_credentials table
                   const username = `${firstName.toLowerCase()}.${secondName
@@ -303,14 +299,63 @@ app.post("/api/updateStatus/:id", (req, res) => {
                           });
                         }
 
-                        // console.log(
-                        //   "User credentials created successfully:",
-                        //   credentialsResult
-                        // );
-                        res.json({
-                          message:
-                            "Status updated, student record, fees record, and user credentials created successfully.",
-                        });
+                        // Get the User_ID of the inserted student
+                        const getUserIDSQL = `
+                          SELECT User_ID FROM user_credentials WHERE Username = ? LIMIT 1
+                        `;
+                        connection.query(
+                          getUserIDSQL,
+                          [username],
+                          (err, userResult) => {
+                            if (err) {
+                              console.error(
+                                "Error fetching user ID:",
+                                err
+                              );
+                              return res.status(500).json({
+                                error: "Error fetching user ID",
+                                details: err.message,
+                              });
+                            }
+
+                            if (userResult.length > 0) {
+                              const userID = userResult[0].User_ID;
+
+                              // Update student_record with the User_ID
+                              const updateStudentSQL = `
+                                UPDATE student_record 
+                                SET User_ID = ? 
+                                WHERE Student_ID = ?
+                              `;
+                              connection.query(
+                                updateStudentSQL,
+                                [userID, studentID],
+                                (err, updateResult) => {
+                                  if (err) {
+                                    console.error(
+                                      "Error updating student record with User_ID:",
+                                      err
+                                    );
+                                    return res.status(500).json({
+                                      error: "Error updating student record with User_ID",
+                                      details: err.message,
+                                    });
+                                  }
+
+                                  res.json({
+                                    message:
+                                      "Status updated, student record, fees record, and user credentials created successfully.",
+                                  });
+                                }
+                              );
+                            } else {
+                              res.status(500).json({
+                                error:
+                                  "User credentials were created, but User_ID could not be retrieved.",
+                              });
+                            }
+                          }
+                        );
                       }
                     );
                   });
@@ -329,6 +374,7 @@ app.post("/api/updateStatus/:id", (req, res) => {
     }
   });
 });
+
 
 ///////////////////////////////////////////student management/////////////////////////
 app.get("/api/students", (req, res) => {
@@ -431,8 +477,28 @@ app.post("/api/teachers", async (req, res) => {
     const credentialsValues = [username, hashedPassword, role, Email];
     await db.promise().query(insertCredentialsSQL, credentialsValues);
 
-    // Respond with success
-    res.status(201).send({ message: "Teacher added successfully", teacherID });
+    // Get the User_ID of the inserted teacher from user_credentials table
+    const getUserIDSQL = `
+      SELECT User_ID FROM user_credentials WHERE Username = ? LIMIT 1
+    `;
+    const [userResult] = await db.promise().query(getUserIDSQL, [username]);
+
+    if (userResult.length > 0) {
+      const userID = userResult[0].User_ID;
+
+      // Update teacher table with the User_ID
+      const updateTeacherSQL = `
+        UPDATE teacher 
+        SET User_ID = ? 
+        WHERE Teacher_ID = ?
+      `;
+      await db.promise().query(updateTeacherSQL, [userID, teacherID]);
+
+      // Respond with success
+      res.status(201).send({ message: "Teacher added successfully", teacherID });
+    } else {
+      res.status(500).send({ message: "User ID not found after inserting into user_credentials" });
+    }
   } catch (err) {
     console.error("Error inserting teacher:", err);
     res
@@ -440,6 +506,7 @@ app.post("/api/teachers", async (req, res) => {
       .send({ message: "Error adding teacher", error: err.message });
   }
 });
+
 
 //////////////////////Teacher Table//////////////////////
 app.get("/api/teachers", (req, res) => {
@@ -939,6 +1006,7 @@ const upload = multer({
       "video/x-matroska", // Added video/x-matroska for .mkv
       "audio/mpeg",
       "audio/mp3",
+      "audio/x-m4a",
       "application/pdf",
     ];
     console.log("MIME Type:", file.mimetype);
@@ -1692,6 +1760,62 @@ app.get("/api/gender-distribution", (req, res) => {
       return res.status(500).json({ message: "Database error." });
     }
     res.json(results);
+  });
+});
+
+// WelcomeComponent/////////////////////////////////////////////
+const JWT_SECRET = "your-secret-key"; // Hardcoded secret key
+
+app.get("/api/welcome", authenticateToken, (req, res) => {
+  const token = req.headers.authorization?.split(" ")[1]; // Extract token from header
+  if (!token) {
+    return res.status(401).json({ error: "Unauthorized: No token provided" });
+  }
+
+  // Decode JWT to get role and userId
+  let decoded;
+  try {
+    decoded = jwt.verify(token, JWT_SECRET); // Use the hardcoded JWT secret
+  } catch (err) {
+    return res.status(401).json({ error: "Unauthorized: Invalid token" });
+  }
+
+  const { role, userId } = decoded;
+
+  if (!role || !userId) {
+    return res
+      .status(401)
+      .json({ error: "Unauthorized: Missing role or userId in token" });
+  }
+
+  // Now, fetch name based on the role
+  let sql = "";
+  if (role === "teacher") {
+    sql = `
+      SELECT CONCAT(t.First_Name, ' ', t.Last_Name) AS Name, 'Teacher' AS Role
+      FROM teacher t WHERE t.User_ID = ?;
+    `;
+  } else if (role.toLowerCase() === "student") {
+    sql = `
+      SELECT CONCAT(s.First_Name, ' ', s.Second_Name) AS Name, 'Student' AS Role
+      FROM student_record s WHERE s.User_ID = ?;
+    `;
+  } else {
+    return res.status(400).json({ error: "Invalid role" });
+  }
+
+  // Fetch name based on role
+  db.query(sql, [userId], (err, results) => {
+    if (err) {
+      console.error("Error fetching profile data:", err);
+      return res.status(500).json({ error: "Failed to fetch profile details" });
+    }
+
+    if (results.length === 0) {
+      return res.status(404).json({ error: "User profile not found" });
+    }
+
+    res.json(results[0]); // Return the profile with role and name
   });
 });
 

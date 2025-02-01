@@ -26,6 +26,15 @@ import GradeBook from './TeacherPages/GradeBook';
 import CommunicationHub from './TeacherPages/CommunicationHub';
 import ResourceCenter from './TeacherPages/ResourceCenter';
 import TeachersSettings from './TeacherPages/TeachersSettings';
+import StudentLayout from './StudentComponents/StudentLayout';
+import StudentDashboard from './StudentsPages/StudentDashboard';
+import Finance from './StudentsPages/SFinance';
+import Performance from './StudentsPages/Performance';
+import SCommunicationHub from './StudentsPages/SCommunicationHub';
+import SResourceCenter from './StudentsPages/SResourceCenter';
+import StudentSettings from './StudentsPages/StudentSettings';
+import SFinance from './StudentsPages/SFinance';
+
 
 
 
@@ -62,6 +71,15 @@ const App = () => {
       <Route path="/CommunicationHub" element={<CommunicationHub/>} />
       <Route path="/ResourceCenter" element={<ResourceCenter />} />
       <Route path="/TeachersSettings" element={<TeachersSettings />} />
+
+        </Route>
+      <Route element={<StudentLayout />}>
+            <Route path="/StudentDashboard" element={<StudentDashboard/>} />
+      <Route path="/SFinance" element={<SFinance />} />
+      <Route path="/Performance" element={<Performance />} />
+      <Route path="/SCommunicationHub" element={<SCommunicationHub/>} />
+      <Route path="/SResourceCenter" element={<SResourceCenter />} />
+      <Route path="/StudentSettings" element={<StudentSettings />} />
 
         </Route>
       
