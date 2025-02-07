@@ -2162,7 +2162,6 @@ app.put("/api/update-password", authenticateToken, async (req, res) => {
   }
 });
 
-
 // STUDENTS SETTINGS////////////////////////
 // ✅ **1. Get Student Profile**
 app.get("/api/get-student-profile", authenticateToken, (req, res) => {
@@ -2252,48 +2251,52 @@ app.get("/api/student-profile", authenticateToken, (req, res) => {
   }
 });
 // ✅ **3. Delete Profile Picture**
-app.delete("/api/delete-student-profile-picture", authenticateToken, (req, res) => {
-  const token = req.headers.authorization?.split(" ")[1]; // Extract token
-  if (!token)
-    return res.status(401).json({ error: "Unauthorized: No token provided" });
+app.delete(
+  "/api/delete-student-profile-picture",
+  authenticateToken,
+  (req, res) => {
+    const token = req.headers.authorization?.split(" ")[1]; // Extract token
+    if (!token)
+      return res.status(401).json({ error: "Unauthorized: No token provided" });
 
-  try {
-    const decoded = jwt.verify(token, JWT_SECRET);
-    const { userId } = decoded;
+    try {
+      const decoded = jwt.verify(token, JWT_SECRET);
+      const { userId } = decoded;
 
-    const getPictureQuery =
-      "SELECT picture_path FROM user_profile_pictures WHERE user_id = ?;";
-    const deletePictureQuery =
-      "DELETE FROM user_profile_pictures WHERE user_id = ?;";
+      const getPictureQuery =
+        "SELECT picture_path FROM user_profile_pictures WHERE user_id = ?;";
+      const deletePictureQuery =
+        "DELETE FROM user_profile_pictures WHERE user_id = ?;";
 
-    db.query(getPictureQuery, [userId], (err, results) => {
-      if (err) {
-        console.error("Error fetching profile picture:", err);
-        return res
-          .status(500)
-          .json({ error: "Failed to fetch profile picture" });
-      }
-      if (results.length === 0 || !results[0].picture_path) {
-        return res.status(400).json({ error: "No profile picture found" });
-      }
-
-      const filePath = path.join("uploads", results[0].picture_path);
-      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-
-      db.query(deletePictureQuery, [userId], (err) => {
+      db.query(getPictureQuery, [userId], (err, results) => {
         if (err) {
-          console.error("Error deleting profile picture from DB:", err);
+          console.error("Error fetching profile picture:", err);
           return res
             .status(500)
-            .json({ error: "Failed to delete profile picture" });
+            .json({ error: "Failed to fetch profile picture" });
         }
-        res.json({ message: "Profile picture deleted successfully" });
+        if (results.length === 0 || !results[0].picture_path) {
+          return res.status(400).json({ error: "No profile picture found" });
+        }
+
+        const filePath = path.join("uploads", results[0].picture_path);
+        if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+
+        db.query(deletePictureQuery, [userId], (err) => {
+          if (err) {
+            console.error("Error deleting profile picture from DB:", err);
+            return res
+              .status(500)
+              .json({ error: "Failed to delete profile picture" });
+          }
+          res.json({ message: "Profile picture deleted successfully" });
+        });
       });
-    });
-  } catch (err) {
-    return res.status(401).json({ error: "Unauthorized: Invalid token" });
+    } catch (err) {
+      return res.status(401).json({ error: "Unauthorized: Invalid token" });
+    }
   }
-});
+);
 
 // ✅** UPDATE STUDENT PROFILE**
 app.put(
@@ -2424,6 +2427,49 @@ app.put(
     }
   }
 );
+
+// Resource Center///////////////////////////////
+app.get("/api/resources", async (req, res) => {
+  try {
+    const { category, grade_level, subject, resource_type } = req.query;
+
+    let query = "SELECT id, title, description, resource_type, file_path FROM resources WHERE 1";
+    let params = [];
+
+    if (category) {
+      query += " AND category = ?";
+      params.push(category);
+    }
+    if (grade_level) {
+      query += " AND grade_level = ?";
+      params.push(grade_level);
+    }
+    if (subject) {
+      query += " AND subject = ?";
+      params.push(subject);
+    }
+    if (resource_type) {
+      query += " AND resource_type = ?";
+      params.push(resource_type);
+    }
+
+    // Use query() instead of execute()
+    db.query(query, params, (err, result) => {
+      if (err) {
+        console.error("Error executing query:", err);
+        return res.status(500).json({ error: "Failed to fetch resources" });
+      }
+
+      console.log("Database Result:", result);  // Output the entire result
+      res.json(result);  // Send the result as JSON
+    });
+
+  } catch (error) {
+    console.error("Error fetching resources:", error);
+    res.status(500).json({ error: "Failed to fetch resources" });
+  }
+});
+
 
 
 

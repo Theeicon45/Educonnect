@@ -15,6 +15,7 @@
     "abstract-level": "^3.0.0",
     "antd": "^5.22.5",
     "axios": "^1.7.7",
+    "cloudinary-video-player": "^2.3.2",
     "cropperjs": "^1.6.2",
     "jsonwebtoken": "^9.0.2",
     "jwt-decode": "^4.0.0",

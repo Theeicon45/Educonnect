@@ -1,9 +1,10 @@
 import React from 'react'
+import VideoPlayerComponent from '../Components/VideoPlayerComponent'
 
 const SResourceCenter = () => {
   return (
     <div>
-      Students Resource
+      <VideoPlayerComponent/>
     </div>
   )
 }
