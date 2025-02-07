@@ -26,7 +26,7 @@ const TeacherNavbar = () => {
   useEffect(() => {
     const fetchProfilePicture = async () => {
       try {
-        const response = await fetch("http://localhost:3000/api/profile", {
+        const response = await fetch("http://localhost:3000/api/get-teacher-profile", {
           method: "GET",
           headers: {
             Authorization: `Bearer ${localStorage.getItem("token")}`,
@@ -36,7 +36,7 @@ const TeacherNavbar = () => {
         if (response.ok) {
           const data = await response.json();
           // console.log("Profile Picture Data:", data);
-          setProfilePicture(`http://localhost:3000${data.ProfilePicture}`); // Update state with the picture URL
+          setProfilePicture(`http://localhost:3000${data.picturePath}`); // Update state with the picture URL
         } else {
           console.error(
             "Failed to fetch profile picture:",

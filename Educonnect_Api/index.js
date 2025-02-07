@@ -9,6 +9,7 @@ import multer from "multer";
 import path from "path";
 import { fileURLToPath } from "url";
 import fs from "fs";
+import updateTeacherProfileAPI from "./update-teacher-profile.js";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -308,10 +309,7 @@ app.post("/api/updateStatus/:id", (req, res) => {
                           [username],
                           (err, userResult) => {
                             if (err) {
-                              console.error(
-                                "Error fetching user ID:",
-                                err
-                              );
+                              console.error("Error fetching user ID:", err);
                               return res.status(500).json({
                                 error: "Error fetching user ID",
                                 details: err.message,
@@ -337,7 +335,8 @@ app.post("/api/updateStatus/:id", (req, res) => {
                                       err
                                     );
                                     return res.status(500).json({
-                                      error: "Error updating student record with User_ID",
+                                      error:
+                                        "Error updating student record with User_ID",
                                       details: err.message,
                                     });
                                   }
@@ -374,7 +373,6 @@ app.post("/api/updateStatus/:id", (req, res) => {
     }
   });
 });
-
 
 ///////////////////////////////////////////student management/////////////////////////
 app.get("/api/students", (req, res) => {
@@ -495,9 +493,13 @@ app.post("/api/teachers", async (req, res) => {
       await db.promise().query(updateTeacherSQL, [userID, teacherID]);
 
       // Respond with success
-      res.status(201).send({ message: "Teacher added successfully", teacherID });
+      res
+        .status(201)
+        .send({ message: "Teacher added successfully", teacherID });
     } else {
-      res.status(500).send({ message: "User ID not found after inserting into user_credentials" });
+      res.status(500).send({
+        message: "User ID not found after inserting into user_credentials",
+      });
     }
   } catch (err) {
     console.error("Error inserting teacher:", err);
@@ -506,7 +508,6 @@ app.post("/api/teachers", async (req, res) => {
       .send({ message: "Error adding teacher", error: err.message });
   }
 });
-
 
 //////////////////////Teacher Table//////////////////////
 app.get("/api/teachers", (req, res) => {
@@ -1818,6 +1819,613 @@ app.get("/api/welcome", authenticateToken, (req, res) => {
     res.json(results[0]); // Return the profile with role and name
   });
 });
+
+// Teacher profile
+
+const profilePicUploader = multer({
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => {
+      cb(null, "./uploads/profile_pictures"); // Directory for profile pictures
+    },
+    filename: (req, file, cb) => {
+      cb(null, `${Date.now()}-${file.originalname}`); // Unique filename
+    },
+  }),
+  fileFilter: (req, file, cb) => {
+    const allowedMimeTypes = ["image/jpeg", "image/png", "image/jpg"];
+    if (allowedMimeTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(
+        new Error("Invalid file type! Only JPEG, PNG, and JPG are allowed."),
+        false
+      );
+    }
+  },
+});
+
+// ✅ **1. Get Teacher Profile**
+app.get("/api/get-teacher-profile", authenticateToken, (req, res) => {
+  const token = req.headers.authorization?.split(" ")[1]; // Extract token
+  if (!token)
+    return res.status(401).json({ error: "Unauthorized: No token provided" });
+
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const { userId } = decoded;
+
+    const profileQuery = `
+      SELECT t.First_Name, t.Last_Name, u.Email, p.picture_path 
+      FROM teacher t
+      JOIN user_credentials u ON t.User_ID = u.User_ID
+      LEFT JOIN user_profile_pictures p ON t.User_ID = p.user_id
+      WHERE t.User_ID = ?;
+    `;
+
+    db.query(profileQuery, [userId], (err, results) => {
+      if (err) {
+        console.error("Error fetching teacher profile:", err);
+        return res.status(500).json({ error: "Failed to fetch profile" });
+      }
+      if (results.length === 0) {
+        return res.status(404).json({ error: "Profile not found" });
+      }
+
+      const profile = results[0];
+      res.json({
+        firstName: profile.First_Name,
+        secondName: profile.Last_Name,
+        email: profile.Email,
+        picturePath: profile.picture_path || null,
+      });
+    });
+  } catch (err) {
+    return res.status(401).json({ error: "Unauthorized: Invalid token" });
+  }
+});
+
+// ✅ **2. Update Teacher Profile with Picture Upload**
+app.get("/api/teacher-profile", authenticateToken, (req, res) => {
+  const token = req.headers.authorization?.split(" ")[1]; // Extract token
+  if (!token) {
+    return res.status(401).json({ error: "Unauthorized: No token provided" });
+  }
+
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const userId = decoded.userId;
+
+    const sql = `
+      SELECT 
+        t.First_Name, 
+        t.Last_Name, 
+        u.Email, 
+        p.picture_path 
+      FROM teacher t
+      JOIN user_credentials u ON t.User_ID = u.User_ID
+      LEFT JOIN user_profile_pictures p ON t.User_ID = p.user_id
+      WHERE t.User_ID = ?;
+    `;
+
+    db.query(sql, [userId], (err, results) => {
+      if (err) {
+        console.error("Error fetching teacher profile:", err);
+        return res
+          .status(500)
+          .json({ error: "Failed to fetch profile details" });
+      }
+
+      if (results.length === 0) {
+        return res.status(404).json({ error: "Teacher profile not found" });
+      }
+
+      const profile = results[0];
+      res.json({
+        name: `${profile.First_Name} ${profile.Last_Name}`,
+        email: profile.Email,
+        profilePicture: profile.picture_path
+          ? `http://localhost:3000${profile.picture_path}`
+          : null, // Full path for frontend display
+      });
+    });
+  } catch (err) {
+    return res.status(401).json({ error: "Unauthorized: Invalid token" });
+  }
+});
+
+// ✅ **3. Delete Profile Picture**
+app.delete("/api/delete-profile-picture", authenticateToken, (req, res) => {
+  const token = req.headers.authorization?.split(" ")[1];
+  if (!token)
+    return res.status(401).json({ error: "Unauthorized: No token provided" });
+
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const { userId } = decoded;
+
+    const getPictureQuery =
+      "SELECT picture_path FROM user_profile_pictures WHERE user_id = ?;";
+    const deletePictureQuery =
+      "DELETE FROM user_profile_pictures WHERE user_id = ?;";
+
+    db.query(getPictureQuery, [userId], (err, results) => {
+      if (err) {
+        console.error("Error fetching profile picture:", err);
+        return res
+          .status(500)
+          .json({ error: "Failed to fetch profile picture" });
+      }
+      if (results.length === 0 || !results[0].picture_path) {
+        return res.status(400).json({ error: "No profile picture found" });
+      }
+
+      const filePath = path.join("uploads", results[0].picture_path);
+      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+
+      db.query(deletePictureQuery, [userId], (err) => {
+        if (err) {
+          console.error("Error deleting profile picture from DB:", err);
+          return res
+            .status(500)
+            .json({ error: "Failed to delete profile picture" });
+        }
+        res.json({ message: "Profile picture deleted successfully" });
+      });
+    });
+  } catch (err) {
+    return res.status(401).json({ error: "Unauthorized: Invalid token" });
+  }
+});
+
+app.put(
+  "/api/update-teacher-profile",
+  authenticateToken,
+  profilePicUploader.single("profilePicture"),
+  (req, res) => {
+    const token = req.headers.authorization?.split(" ")[1]; // Extract token
+    if (!token)
+      return res.status(401).json({ error: "Unauthorized: No token provided" });
+
+    try {
+      const decoded = jwt.verify(token, JWT_SECRET);
+      const { userId } = decoded;
+      const { firstName, lastName, email } = req.body;
+      let picturePath = null;
+
+      if (req.file) {
+        picturePath = `/uploads/profile_pictures/${req.file.filename}`; // Relative path for frontend
+      }
+
+      // Start transaction
+      db.beginTransaction((err) => {
+        if (err) {
+          console.error("Transaction error:", err);
+          return res.status(500).json({ error: "Failed to update profile" });
+        }
+
+        // ✅ **Step 1: Update teacher details**
+        const updateTeacherQuery = `
+        UPDATE teacher 
+        SET First_Name = ?, Last_Name = ? 
+        WHERE User_ID = ?;
+      `;
+        db.query(
+          updateTeacherQuery,
+          [firstName, lastName, userId],
+          (err, result) => {
+            if (err) {
+              console.error("Error updating teacher profile:", err);
+              return db.rollback(() =>
+                res.status(500).json({ error: "Failed to update profile" })
+              );
+            }
+
+            // ✅ **Step 2: Update email in user_credentials**
+            const updateEmailQuery = `UPDATE user_credentials SET Email = ? WHERE User_ID = ?;`;
+            db.query(updateEmailQuery, [email, userId], (err, result) => {
+              if (err) {
+                console.error("Error updating email:", err);
+                return db.rollback(() =>
+                  res.status(500).json({ error: "Failed to update email" })
+                );
+              }
+
+              // ✅ **Step 3: Update or Insert Profile Picture**
+              if (picturePath) {
+                const checkPictureQuery = `SELECT * FROM user_profile_pictures WHERE user_id = ?;`;
+                db.query(checkPictureQuery, [userId], (err, results) => {
+                  if (err) {
+                    console.error("Error checking profile picture:", err);
+                    return db.rollback(() =>
+                      res
+                        .status(500)
+                        .json({ error: "Failed to update profile picture" })
+                    );
+                  }
+
+                  let updatePictureQuery;
+                  let params;
+                  if (results.length > 0) {
+                    // ✅ **Update existing profile picture path**
+                    updatePictureQuery = `UPDATE user_profile_pictures SET picture_path = ? WHERE user_id = ?;`;
+                    params = [picturePath, userId];
+                  } else {
+                    // ✅ **Insert new profile picture path**
+                    updatePictureQuery = `INSERT INTO user_profile_pictures (user_id, picture_path) VALUES (?, ?);`;
+                    params = [userId, picturePath];
+                  }
+
+                  db.query(updatePictureQuery, params, (err, result) => {
+                    if (err) {
+                      console.error("Error updating profile picture:", err);
+                      return db.rollback(() =>
+                        res
+                          .status(500)
+                          .json({ error: "Failed to update profile picture" })
+                      );
+                    }
+
+                    db.commit((err) => {
+                      if (err) {
+                        console.error("Transaction commit error:", err);
+                        return db.rollback(() =>
+                          res
+                            .status(500)
+                            .json({ error: "Failed to update profile" })
+                        );
+                      }
+
+                      res.json({
+                        message: "Profile updated successfully",
+                        picturePath, // Send updated picture path
+                      });
+                    });
+                  });
+                });
+              } else {
+                db.commit((err) => {
+                  if (err) {
+                    console.error("Transaction commit error:", err);
+                    return db.rollback(() =>
+                      res
+                        .status(500)
+                        .json({ error: "Failed to update profile" })
+                    );
+                  }
+
+                  res.json({ message: "Profile updated successfully" });
+                });
+              }
+            });
+          }
+        );
+      });
+    } catch (err) {
+      return res.status(401).json({ error: "Unauthorized: Invalid token" });
+    }
+  }
+);
+
+// Teacher Password update////////////////////////
+
+app.put("/api/update-password", authenticateToken, async (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+  const token = req.header("Authorization")?.replace("Bearer ", "");
+
+  if (!token) {
+    return res
+      .status(401)
+      .json({ message: "Access denied. No token provided." });
+  }
+
+  try {
+    // Decode user ID from the token
+    const decoded = jwt.verify(token, SECRET_KEY);
+    const { userId } = decoded; // Extract `userId` from decoded token
+
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ message: "All fields are required" });
+    }
+
+    // Fetch the user's current password hash from the database
+    const [user] = await db
+      .promise()
+      .query("SELECT Password_Hash FROM user_credentials WHERE User_ID = ?", [
+        userId,
+      ]);
+
+    if (user.length === 0) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    const storedPasswordHash = user[0].Password_Hash;
+
+    // Compare the entered current password with the stored hash
+    const isMatch = await bcrypt.compare(currentPassword, storedPasswordHash);
+    if (!isMatch) {
+      return res.status(401).json({ message: "Incorrect current password" });
+    }
+
+    // Hash the new password and update it in the database
+    const hashedNewPassword = await bcrypt.hash(newPassword, 10);
+    await db
+      .promise()
+      .query(
+        "UPDATE user_credentials SET Password_Hash = ? WHERE User_ID = ?",
+        [hashedNewPassword, userId]
+      );
+
+    res.json({ message: "Password updated successfully" });
+  } catch (error) {
+    console.error("Error updating password:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+
+// STUDENTS SETTINGS////////////////////////
+// ✅ **1. Get Student Profile**
+app.get("/api/get-student-profile", authenticateToken, (req, res) => {
+  const token = req.headers.authorization?.split(" ")[1]; // Extract token
+  if (!token)
+    return res.status(401).json({ error: "Unauthorized: No token provided" });
+
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const { userId } = decoded;
+
+    const profileQuery = `
+      SELECT s.First_Name, s.Second_Name, u.Email, p.picture_path
+      FROM student_record s
+      JOIN user_credentials u ON s.User_ID = u.User_ID
+      LEFT JOIN user_profile_pictures p ON s.User_ID = p.user_id
+      WHERE s.User_ID = ?;
+    `;
+
+    db.query(profileQuery, [userId], (err, results) => {
+      if (err) {
+        console.error("Error fetching student profile:", err);
+        return res.status(500).json({ error: "Failed to fetch profile" });
+      }
+      if (results.length === 0) {
+        return res.status(404).json({ error: "Profile not found" });
+      }
+
+      const profile = results[0];
+      res.json({
+        firstName: profile.First_Name,
+        lastName: profile.Second_Name,
+        email: profile.Email,
+        picturePath: profile.picture_path || null,
+      });
+    });
+  } catch (err) {
+    return res.status(401).json({ error: "Unauthorized: Invalid token" });
+  }
+});
+// ✅ **2. Update Student Profile with Picture Upload**
+app.get("/api/student-profile", authenticateToken, (req, res) => {
+  const token = req.headers.authorization?.split(" ")[1]; // Extract token
+  if (!token) {
+    return res.status(401).json({ error: "Unauthorized: No token provided" });
+  }
+
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const userId = decoded.userId;
+
+    const sql = `
+      SELECT 
+        s.First_Name, 
+        s.Last_Name, 
+        u.Email, 
+        p.picture_path 
+      FROM student s
+      JOIN user_credentials u ON s.User_ID = u.User_ID
+      LEFT JOIN user_profile_pictures p ON s.User_ID = p.user_id
+      WHERE s.User_ID = ?;
+    `;
+
+    db.query(sql, [userId], (err, results) => {
+      if (err) {
+        console.error("Error fetching student profile:", err);
+        return res
+          .status(500)
+          .json({ error: "Failed to fetch profile details" });
+      }
+
+      if (results.length === 0) {
+        return res.status(404).json({ error: "Student profile not found" });
+      }
+
+      const profile = results[0];
+      res.json({
+        name: `${profile.First_Name} ${profile.Last_Name}`,
+        email: profile.Email,
+        profilePicture: profile.picture_path
+          ? `http://localhost:3000${profile.picture_path}`
+          : null, // Full path for frontend display
+      });
+    });
+  } catch (err) {
+    return res.status(401).json({ error: "Unauthorized: Invalid token" });
+  }
+});
+// ✅ **3. Delete Profile Picture**
+app.delete("/api/delete-student-profile-picture", authenticateToken, (req, res) => {
+  const token = req.headers.authorization?.split(" ")[1]; // Extract token
+  if (!token)
+    return res.status(401).json({ error: "Unauthorized: No token provided" });
+
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    const { userId } = decoded;
+
+    const getPictureQuery =
+      "SELECT picture_path FROM user_profile_pictures WHERE user_id = ?;";
+    const deletePictureQuery =
+      "DELETE FROM user_profile_pictures WHERE user_id = ?;";
+
+    db.query(getPictureQuery, [userId], (err, results) => {
+      if (err) {
+        console.error("Error fetching profile picture:", err);
+        return res
+          .status(500)
+          .json({ error: "Failed to fetch profile picture" });
+      }
+      if (results.length === 0 || !results[0].picture_path) {
+        return res.status(400).json({ error: "No profile picture found" });
+      }
+
+      const filePath = path.join("uploads", results[0].picture_path);
+      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+
+      db.query(deletePictureQuery, [userId], (err) => {
+        if (err) {
+          console.error("Error deleting profile picture from DB:", err);
+          return res
+            .status(500)
+            .json({ error: "Failed to delete profile picture" });
+        }
+        res.json({ message: "Profile picture deleted successfully" });
+      });
+    });
+  } catch (err) {
+    return res.status(401).json({ error: "Unauthorized: Invalid token" });
+  }
+});
+
+// ✅** UPDATE STUDENT PROFILE**
+app.put(
+  "/api/update-student-profile",
+  authenticateToken,
+  profilePicUploader.single("profilePicture"),
+  (req, res) => {
+    const token = req.headers.authorization?.split(" ")[1]; // Extract token
+    if (!token)
+      return res.status(401).json({ error: "Unauthorized: No token provided" });
+
+    try {
+      const decoded = jwt.verify(token, JWT_SECRET);
+      const { userId } = decoded;
+      const { firstName, lastName, email } = req.body;
+      let picturePath = null;
+
+      if (req.file) {
+        picturePath = `/uploads/profile_pictures/${req.file.filename}`; // Relative path for frontend
+      }
+
+      // Start transaction
+      db.beginTransaction((err) => {
+        if (err) {
+          console.error("Transaction error:", err);
+          return res.status(500).json({ error: "Failed to update profile" });
+        }
+
+        // ✅ **Step 1: Update student details**
+        const updateStudentQuery = `
+        UPDATE student_record 
+        SET First_Name = ?, Second_Name = ? 
+        WHERE User_ID = ?;
+      `;
+        db.query(
+          updateStudentQuery,
+          [firstName, lastName, userId],
+          (err, result) => {
+            if (err) {
+              console.error("Error updating student profile:", err);
+              return db.rollback(() =>
+                res.status(500).json({ error: "Failed to update profile" })
+              );
+            }
+
+            // ✅ **Step 2: Update email in user_credentials**
+            const updateEmailQuery = `UPDATE user_credentials SET Email = ? WHERE User_ID = ?;`;
+            db.query(updateEmailQuery, [email, userId], (err, result) => {
+              if (err) {
+                console.error("Error updating email:", err);
+                return db.rollback(() =>
+                  res.status(500).json({ error: "Failed to update email" })
+                );
+              }
+
+              // ✅ **Step 3: Update or Insert Profile Picture**
+              if (picturePath) {
+                const checkPictureQuery = `SELECT * FROM user_profile_pictures WHERE user_id = ?;`;
+                db.query(checkPictureQuery, [userId], (err, results) => {
+                  if (err) {
+                    console.error("Error checking profile picture:", err);
+                    return db.rollback(() =>
+                      res
+                        .status(500)
+                        .json({ error: "Failed to update profile picture" })
+                    );
+                  }
+
+                  let updatePictureQuery;
+                  let params;
+                  if (results.length > 0) {
+                    // ✅ **Update existing profile picture path**
+                    updatePictureQuery = `UPDATE user_profile_pictures SET picture_path = ? WHERE user_id = ?;`;
+                    params = [picturePath, userId];
+                  } else {
+                    // ✅ **Insert new profile picture path**
+                    updatePictureQuery = `INSERT INTO user_profile_pictures (user_id, picture_path) VALUES (?, ?);`;
+                    params = [userId, picturePath];
+                  }
+
+                  db.query(updatePictureQuery, params, (err, result) => {
+                    if (err) {
+                      console.error("Error updating profile picture:", err);
+                      return db.rollback(() =>
+                        res
+                          .status(500)
+                          .json({ error: "Failed to update profile picture" })
+                      );
+                    }
+
+                    db.commit((err) => {
+                      if (err) {
+                        console.error("Transaction commit error:", err);
+                        return db.rollback(() =>
+                          res
+                            .status(500)
+                            .json({ error: "Failed to update profile" })
+                        );
+                      }
+
+                      res.json({
+                        message: "Profile updated successfully",
+                        picturePath, // Send updated picture path
+                      });
+                    });
+                  });
+                });
+              } else {
+                db.commit((err) => {
+                  if (err) {
+                    console.error("Transaction commit error:", err);
+                    return db.rollback(() =>
+                      res
+                        .status(500)
+                        .json({ error: "Failed to update profile" })
+                    );
+                  }
+
+                  res.json({ message: "Profile updated successfully" });
+                });
+              }
+            });
+          }
+        );
+      });
+    } catch (err) {
+      return res.status(401).json({ error: "Unauthorized: Invalid token" });
+    }
+  }
+);
+
+
 
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
