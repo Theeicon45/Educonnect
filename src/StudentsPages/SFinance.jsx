@@ -1,9 +1,10 @@
 import React from 'react'
+import FinanceViewer from '../StudentComponents/FinanceViewer'
 
 const SFinance = () => {
   return (
     <div>
-      Student Finance
+      <FinanceViewer/>
     </div>
   )
 }

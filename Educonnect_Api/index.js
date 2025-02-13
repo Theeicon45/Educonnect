@@ -2433,7 +2433,8 @@ app.get("/api/resources", async (req, res) => {
   try {
     const { category, grade_level, subject, resource_type } = req.query;
 
-    let query = "SELECT id, title, description, resource_type, file_path FROM resources WHERE 1";
+    let query =
+      "SELECT id, title, description, resource_type, file_path FROM resources WHERE 1";
     let params = [];
 
     if (category) {
@@ -2460,15 +2461,312 @@ app.get("/api/resources", async (req, res) => {
         return res.status(500).json({ error: "Failed to fetch resources" });
       }
 
-      console.log("Database Result:", result);  // Output the entire result
-      res.json(result);  // Send the result as JSON
+      console.log("Database Result:", result); // Output the entire result
+      res.json(result); // Send the result as JSON
     });
-
   } catch (error) {
     console.error("Error fetching resources:", error);
     res.status(500).json({ error: "Failed to fetch resources" });
   }
 });
+
+// STUDENT FEES
+app.post("/api/pay", authenticateToken, (req, res) => {
+  const { FeeType, AmountPaid } = req.body;
+  const userId = req.user?.userId;
+
+  if (!userId) {
+    return res
+      .status(401)
+      .json({
+        success: false,
+        message: "Unauthorized: User ID missing in token",
+      });
+  }
+
+  if (!FeeType || !AmountPaid || AmountPaid <= 0) {
+    return res
+      .status(400)
+      .json({ success: false, message: "Invalid payment details" });
+  }
+
+  // Get StudentID and SchoolID from student_record using userId
+  const studentQuery =
+    "SELECT Student_ID, School_ID, First_Name, Second_Name FROM student_record WHERE User_ID = ?";
+  db.query(studentQuery, [userId], (err, studentResult) => {
+    if (err) {
+      console.error("Database Error (Fetching StudentID and SchoolID):", err);
+      return res.status(500).json({ success: false, message: "Server error" });
+    }
+
+    if (studentResult.length === 0) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Student record not found" });
+    }
+
+    const studentId = studentResult[0].Student_ID;
+    const schoolId = studentResult[0].School_ID;
+    const firstName = studentResult[0].First_Name || "";
+    const secondName = studentResult[0].Second_Name || "";
+
+    // Generate student initials (first letter of first name and second name)
+    const studentInitials =
+      (firstName[0] ? firstName[0].toUpperCase() : "") +
+      (secondName[0] ? secondName[0].toUpperCase() : "");
+
+    if (!studentInitials) {
+      return res
+        .status(400)
+        .json({
+          success: false,
+          message: "Student initials could not be generated",
+        });
+    }
+
+    // Fetch school name based on SchoolID
+    const schoolQuery = "SELECT School_Name FROM school WHERE School_ID = ?";
+    db.query(schoolQuery, [schoolId], (err, schoolResult) => {
+      if (err) {
+        console.error("Database Error (Fetching School Name):", err);
+        return res
+          .status(500)
+          .json({ success: false, message: "Server error" });
+      }
+
+      if (schoolResult.length === 0) {
+        return res
+          .status(404)
+          .json({ success: false, message: "School record not found" });
+      }
+
+      const schoolName = schoolResult[0].School_Name;
+
+      // Generate school initials (first letter of each word in school name)
+      const schoolInitials = schoolName
+        .split(" ")
+        .map((word) => word[0].toUpperCase())
+        .join("");
+
+      // Generate receipt number: School Initials + Student Initials + HHMMSS
+      const receiptNumber = `${schoolInitials}${studentInitials}${new Date()
+        .toLocaleTimeString()
+        .replace(/:/g, "")}`;
+
+      // Generate a reference number (optional)
+      const referenceNumber = `REF${new Date().getTime()}`;
+
+      // Fetch existing fee details
+      const fetchQuery = `
+        SELECT AmountDue, COALESCE(AmountPaid, 0) AS AmountPaid 
+        FROM fees WHERE StudentID = ? 
+      `;
+      db.query(fetchQuery, [studentId], (err, results) => {
+        if (err) {
+          console.error("Database Error (Fetching Fees):", err);
+          return res
+            .status(500)
+            .json({ success: false, message: "Server error" });
+        }
+
+        if (results.length === 0) {
+          return res
+            .status(404)
+            .json({ success: false, message: "Fee record not found" });
+        }
+
+        const { AmountDue, AmountPaid: CurrentPaid } = results[0];
+        const NewAmountPaid = parseFloat(CurrentPaid) + parseFloat(AmountPaid);
+        const Balance = parseFloat(AmountDue) - NewAmountPaid;
+        let PaymentStatus = Balance <= 0 ? "Paid" : "Partially Paid";
+
+        // Insert receipt record
+        const insertReceiptQuery = `
+          INSERT INTO receipts (receipt_number, reference_number, Student_ID, School_ID, payment_date)
+          VALUES (?, ?, ?, ?, NOW())
+        `;
+        db.query(
+          insertReceiptQuery,
+          [receiptNumber, referenceNumber, studentId, schoolId],
+          (err, insertResult) => {
+            if (err) {
+              console.error("Database Error (Inserting Receipt):", err);
+              return res
+                .status(500)
+                .json({ success: false, message: "Receipt creation failed" });
+            }
+
+            // Update fee record
+            const updateQuery = `
+            UPDATE fees 
+            SET AmountPaid = ?, FeeType = ?, PaymentStatus = ?, UpdatedAt = NOW() 
+            WHERE StudentID = ?
+          `;
+            db.query(
+              updateQuery,
+              [NewAmountPaid, FeeType, PaymentStatus, studentId],
+              (err, updateResult) => {
+                if (err) {
+                  console.error("Update Error:", err);
+                  return res
+                    .status(500)
+                    .json({ success: false, message: "Payment update failed" });
+                }
+
+                res.json({
+                  success: true,
+                  message: "Payment updated successfully",
+                  Balance,
+                  PaymentStatus,
+                  ReceiptNumber: receiptNumber,
+                  ReferenceNumber: referenceNumber,
+                });
+              }
+            );
+          }
+        );
+      });
+    });
+  });
+});
+
+// SEARCH FEES
+app.get("/api/feessearch", authenticateToken, (req, res) => {
+  const userId = req.user?.userId;
+
+  // Get StudentID
+  const studentQuery =
+    "SELECT Student_ID FROM student_record WHERE User_ID = ?";
+  db.query(studentQuery, [userId], (err, studentResult) => {
+    if (err) {
+      console.error("Database Error:", err);
+      return res.status(500).json({ success: false, message: "Server error" });
+    }
+
+    if (studentResult.length === 0) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Student record not found" });
+    }
+    const studentId = studentResult[0].Student_ID;
+
+    // Fetch fee details including last paid FeeType
+    const fetchQuery = `
+      SELECT 
+        f.FeeType, 
+        f.AmountDue - f.AmountPaid AS amount_remaining, 
+        f.FeeType
+      FROM fees f 
+      WHERE f.Student_ID = ?
+    `;
+
+    db.query(fetchQuery, [studentId], (err, results) => {
+      if (err) {
+        console.error("Database Error (Fetching Fees):", err);
+        return res
+          .status(500)
+          .json({ success: false, message: "Server error" });
+      }
+
+      res.json({ success: true, fees: results });
+    });
+  });
+});
+
+// Fetch receipt data
+app.get("/api/receipt", authenticateToken, (req, res) => {
+  const userId = req.user?.userId;
+  console.log("Authenticated userId:", userId);
+
+  // Step 1: Fetch student ID, full name, and school ID
+  const studentQuery = `
+    SELECT Student_ID, School_ID, CONCAT(First_Name, ' ', Second_Name) AS studentName 
+    FROM student_record 
+    WHERE User_ID = ?
+  `;
+
+  db.query(studentQuery, [userId], (err, studentResult) => {
+    if (err) {
+      console.error("Error fetching student record:", err);
+      return res.status(500).json({ success: false, message: "Server error. Please try again later." });
+    }
+
+    if (!studentResult || studentResult.length === 0) {
+      console.log("No student found for userID:", userId);
+      return res.status(404).json({ success: false, message: "Student record not found." });
+    }
+
+    const studentID = studentResult[0].Student_ID;
+    const schoolID = studentResult[0].School_ID;
+    const studentName = studentResult[0].studentName;
+    console.log("Fetched studentID:", studentID, "School_ID:", schoolID, "Student Name:", studentName);
+
+    // Step 2: Fetch school name using school ID
+    const schoolQuery = `SELECT School_Name FROM school WHERE School_ID = ?`;
+
+    db.query(schoolQuery, [schoolID], (err, schoolResult) => {
+      if (err) {
+        console.error("Error fetching school details:", err);
+        return res.status(500).json({ success: false, message: "Server error. Please try again later." });
+      }
+
+      if (!schoolResult || schoolResult.length === 0) {
+        console.log("No school found for School_ID:", schoolID);
+        return res.status(404).json({ success: false, message: "School record not found." });
+      }
+
+      const schoolName = schoolResult[0].School_Name;
+      console.log("Fetched schoolName:", schoolName);
+
+      // Step 3: Fetch receipt details
+      const receiptQuery = `SELECT * FROM receipts WHERE Student_ID = ?`;
+
+      db.query(receiptQuery, [studentID], (err, receiptResult) => {
+        if (err) {
+          console.error("Error fetching receipt:", err);
+          return res.status(500).json({ success: false, message: "Server error. Please try again later." });
+        }
+
+        if (!receiptResult || receiptResult.length === 0) {
+          console.log("No receipt found for studentID:", studentID);
+          return res.status(404).json({ success: false, message: "Receipt not found for this student." });
+        }
+
+        const receipt = receiptResult[0];
+        console.log("Fetched receipt:", receipt);
+
+        // Step 4: Fetch the amount paid from the fees table (just the Amount_Paid for the student)
+        const feeQuery = `SELECT AmountPaid FROM fees WHERE StudentID = ? LIMIT 1`;
+
+        db.query(feeQuery, [studentID], (err, feeResult) => {
+          if (err) {
+            console.error("Error fetching fee details:", err);
+            return res.status(500).json({ success: false, message: "Server error. Please try again later." });
+          }
+
+          if (!feeResult || feeResult.length === 0) {
+            console.log("No payment found for studentID:", studentID);
+            return res.status(404).json({ success: false, message: "No payment record found for this student." });
+          }
+          // console.log('pesa za fees',feeResult)
+          const totalPaid = feeResult[0].AmountPaid;
+          console.log("Fetched totalPaid:", totalPaid);
+
+          return res.status(200).json({
+            success: true,
+            receiptNumber: receipt.receipt_number,
+            referenceNumber: receipt.reference_number,
+            totalPaid: totalPaid, // Just the Amount_Paid for the student
+            studentName: studentName, // Include student's full name
+            schoolName: schoolName, // Include school name
+          });
+        });
+      });
+    });
+  });
+});
+
+
 
 
 
