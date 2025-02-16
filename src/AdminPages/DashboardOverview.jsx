@@ -1,7 +1,6 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { jwtDecode } from "jwt-decode";
-import '../styles/loader.scss';  // Import your SCSS file here
 
 import Announcements from "../Components/Announcements";
 import CountChart from "../Components/CountChart";

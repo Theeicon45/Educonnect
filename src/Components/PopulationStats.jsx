@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { FaArrowUp } from "react-icons/fa6";
 import { moredark, User } from "../Utils/images";
+import ClipLoader from "react-spinners/ClipLoader";
+
 
 const PopulationStats = ({ type }) => {
   const [count, setCount] = useState(null);
@@ -44,8 +46,8 @@ const PopulationStats = ({ type }) => {
 
   if (count === null) {
     return (
-      <div className="mt-4 flex flex-col gap-4 rounded-2xl p-4 w-[200px] h-[250px] bg-gray-200">
-        Loading...
+      <div className="mt-4 flex flex-col gap-4 justify-center items-center  rounded-2xl p-4 w-[200px] h-[250px] bg-gray-200">
+        <ClipLoader/>
       </div>
     );
   }

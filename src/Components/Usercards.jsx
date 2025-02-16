@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { more } from "../Utils/images";
-import Loader from 'react-loaders'; // Import the Loader
+import ClipLoader from "react-spinners/ClipLoader";
 
 const Usercards = ({ type }) => {
   const [count, setCount] = useState(null);
@@ -42,25 +42,25 @@ const Usercards = ({ type }) => {
   }, [type]);
 
   return (
-    <div className={`rounded-2xl odd:bg-green-200 even:bg-purple-200 p-4 flex-1 min-w-[130px]`}>
-      <div className="flex justify-between items-center">
-        <span className="text-[10px] bg-white px-2 py-1 rounded-full text-cyan-400">2024/25</span>
-        <img src={more} alt="More options" width={20} height={20} className="cursor-pointer" />
-      </div>
-
-      {/* Show loader while data is loading */}
-      {loading ? (
-        <div className="flex justify-center items-center h-24 loader-active">
-          <Loader type="line-spin-fade-loader" />
+      <div className={`rounded-2xl odd:bg-green-200 even:bg-purple-200 p-4 flex-1 min-w-[130px]`}>
+        <div className="flex justify-between items-center">
+          <span className="text-[10px] bg-white px-2 py-1 rounded-full text-cyan-400">2024/25</span>
+          <img src={more} alt="More options" width={20} height={20} className="cursor-pointer" />
         </div>
-      ) : (
-        <h1 className="text-2xl font-semibold my-4">{count}</h1>
-      )}
 
-      <h2 className="font-medium text-sm text-gray-500">
-        {type ? `${type}` : "No Type Provided"}
-      </h2>
-    </div>
+        {/* Show loader while data is loading */}
+        {loading ? (
+          <div className="flex justify-center items-center h-24 loader-active">
+            <ClipLoader  />
+          </div>
+        ) : (
+          <h1 className="text-2xl font-semibold my-4">{count}</h1>
+        )}
+
+        <h2 className="font-medium text-sm text-gray-500">
+          {type ? `${type}` : "No Type Provided"}
+        </h2>
+      </div>
   );
 };
 

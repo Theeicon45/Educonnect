@@ -36,8 +36,8 @@ const WelcomeComponent = () => {
   }, []);
 
   return (
-    <div className="bg-gray-100 p-6 rounded-md shadow-md">
-      <h1 id="landing-text" >
+    <div className="flex justify-center text-center items-center">
+      <h1 id="landing-text" className=" flex justify-center text-center items-center">
         Welcome, {userData.Role} {userData.Name}!
       </h1>
     </div>
