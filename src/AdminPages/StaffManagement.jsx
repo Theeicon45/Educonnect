@@ -8,6 +8,7 @@ import Notification from "../Components/Notification";
 import SubjectsPerformance from "../Components/SubjectsPerformance";
 import TeacherManagement from "../Components/TeacherManagement";
 import TeacherTable from "../Components/TeacherTable";
+import LessonAssignment from "../Components/LessonAssignment";
 
 const StaffManagement = () => {
    const navigate = useNavigate();
@@ -53,6 +54,7 @@ const StaffManagement = () => {
             <SubjectsPerformance />
           </div>
           <TeacherTable />
+          <LessonAssignment/>
         </div>
       </div>
       {/* RIGHT */}

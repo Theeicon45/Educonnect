@@ -2472,27 +2472,29 @@ app.get("/api/resources", async (req, res) => {
 
 // STUDENT FEES
 app.post("/api/pay", authenticateToken, (req, res) => {
-  const { FeeType, AmountPaid } = req.body;
+  const { FeeType, AmountPaid, PaymentMethod } = req.body;
   const userId = req.user?.userId;
 
   if (!userId) {
-    return res
-      .status(401)
-      .json({
-        success: false,
-        message: "Unauthorized: User ID missing in token",
-      });
+    return res.status(401).json({
+      success: false,
+      message: "Unauthorized: User ID missing in token",
+    });
   }
 
-  if (!FeeType || !AmountPaid || AmountPaid <= 0) {
+  if (!FeeType || !AmountPaid || AmountPaid <= 0 || !PaymentMethod) {
     return res
       .status(400)
       .json({ success: false, message: "Invalid payment details" });
   }
 
-  // Get StudentID and SchoolID from student_record using userId
-  const studentQuery =
-    "SELECT Student_ID, School_ID, First_Name, Second_Name FROM student_record WHERE User_ID = ?";
+  // Step 1: Get StudentID, SchoolID, and Student Name
+  const studentQuery = `
+    SELECT Student_ID, School_ID, First_Name, Second_Name 
+    FROM student_record 
+    WHERE User_ID = ?
+  `;
+  
   db.query(studentQuery, [userId], (err, studentResult) => {
     if (err) {
       console.error("Database Error (Fetching StudentID and SchoolID):", err);
@@ -2510,21 +2512,19 @@ app.post("/api/pay", authenticateToken, (req, res) => {
     const firstName = studentResult[0].First_Name || "";
     const secondName = studentResult[0].Second_Name || "";
 
-    // Generate student initials (first letter of first name and second name)
+    // Generate student initials
     const studentInitials =
       (firstName[0] ? firstName[0].toUpperCase() : "") +
       (secondName[0] ? secondName[0].toUpperCase() : "");
 
     if (!studentInitials) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "Student initials could not be generated",
-        });
+      return res.status(400).json({
+        success: false,
+        message: "Student initials could not be generated",
+      });
     }
 
-    // Fetch school name based on SchoolID
+    // Step 2: Get School Name
     const schoolQuery = "SELECT School_Name FROM school WHERE School_ID = ?";
     db.query(schoolQuery, [schoolId], (err, schoolResult) => {
       if (err) {
@@ -2541,8 +2541,6 @@ app.post("/api/pay", authenticateToken, (req, res) => {
       }
 
       const schoolName = schoolResult[0].School_Name;
-
-      // Generate school initials (first letter of each word in school name)
       const schoolInitials = schoolName
         .split(" ")
         .map((word) => word[0].toUpperCase())
@@ -2553,14 +2551,15 @@ app.post("/api/pay", authenticateToken, (req, res) => {
         .toLocaleTimeString()
         .replace(/:/g, "")}`;
 
-      // Generate a reference number (optional)
+      // Generate a unique reference number
       const referenceNumber = `REF${new Date().getTime()}`;
 
-      // Fetch existing fee details
+      // Step 3: Fetch current fee details
       const fetchQuery = `
         SELECT AmountDue, COALESCE(AmountPaid, 0) AS AmountPaid 
         FROM fees WHERE StudentID = ? 
       `;
+
       db.query(fetchQuery, [studentId], (err, results) => {
         if (err) {
           console.error("Database Error (Fetching Fees):", err);
@@ -2580,14 +2579,25 @@ app.post("/api/pay", authenticateToken, (req, res) => {
         const Balance = parseFloat(AmountDue) - NewAmountPaid;
         let PaymentStatus = Balance <= 0 ? "Paid" : "Partially Paid";
 
-        // Insert receipt record
+        // Step 4: Insert receipt record with new fields
         const insertReceiptQuery = `
-          INSERT INTO receipts (receipt_number, reference_number, Student_ID, School_ID, payment_date)
-          VALUES (?, ?, ?, ?, NOW())
+          INSERT INTO receipts 
+          (receiptNumber, referenceNumber, Student_ID, School_ID, feeType, paymentMethod, amountPaid, remainingBalance, date)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())
         `;
+
         db.query(
           insertReceiptQuery,
-          [receiptNumber, referenceNumber, studentId, schoolId],
+          [
+            receiptNumber,
+            referenceNumber,
+            studentId,
+            schoolId,
+            FeeType,
+            PaymentMethod,
+            AmountPaid,
+            Balance,
+          ],
           (err, insertResult) => {
             if (err) {
               console.error("Database Error (Inserting Receipt):", err);
@@ -2596,15 +2606,16 @@ app.post("/api/pay", authenticateToken, (req, res) => {
                 .json({ success: false, message: "Receipt creation failed" });
             }
 
-            // Update fee record
+            // Step 5: Update fee record
             const updateQuery = `
-            UPDATE fees 
-            SET AmountPaid = ?, FeeType = ?, PaymentStatus = ?, UpdatedAt = NOW() 
-            WHERE StudentID = ?
-          `;
+              UPDATE fees 
+              SET AmountPaid = ?, FeeType = ?, PaymentStatus = ?, PaymentMethod = ?, UpdatedAt = NOW() 
+              WHERE StudentID = ?
+            `;
+
             db.query(
               updateQuery,
-              [NewAmountPaid, FeeType, PaymentStatus, studentId],
+              [NewAmountPaid, FeeType, PaymentStatus, PaymentMethod, studentId],
               (err, updateResult) => {
                 if (err) {
                   console.error("Update Error:", err);
@@ -2620,6 +2631,10 @@ app.post("/api/pay", authenticateToken, (req, res) => {
                   PaymentStatus,
                   ReceiptNumber: receiptNumber,
                   ReferenceNumber: referenceNumber,
+                  AmountPaid,
+                  FeeType,
+                  PaymentMethod,
+                  DatePaid: new Date().toISOString(),
                 });
               }
             );
@@ -2629,6 +2644,7 @@ app.post("/api/pay", authenticateToken, (req, res) => {
     });
   });
 });
+
 
 // SEARCH FEES
 app.get("/api/feessearch", authenticateToken, (req, res) => {
@@ -2718,53 +2734,273 @@ app.get("/api/receipt", authenticateToken, (req, res) => {
       const schoolName = schoolResult[0].School_Name;
       console.log("Fetched schoolName:", schoolName);
 
-      // Step 3: Fetch receipt details
-      const receiptQuery = `SELECT * FROM receipts WHERE Student_ID = ?`;
+      // Step 3: Fetch all receipts for the student with fee details
+      const receiptQuery = `
+        SELECT 
+          r.receiptNumber,
+          r.referenceNumber,
+          r.date,
+          r.remainingBalance,
+          f.FeeType AS feeType,
+          f.PaymentMethod AS paymentMethod,
+          r.AmountPaid AS amountPaid 
+        FROM receipts r
+        JOIN fees f ON r.Student_ID = f.StudentID
+        WHERE r.Student_ID = ?
+        ORDER BY r.date DESC
+      `;
 
-      db.query(receiptQuery, [studentID], (err, receiptResult) => {
+      db.query(receiptQuery, [studentID], (err, receiptResults) => {
         if (err) {
-          console.error("Error fetching receipt:", err);
+          console.error("Error fetching receipts:", err);
           return res.status(500).json({ success: false, message: "Server error. Please try again later." });
         }
 
-        if (!receiptResult || receiptResult.length === 0) {
-          console.log("No receipt found for studentID:", studentID);
-          return res.status(404).json({ success: false, message: "Receipt not found for this student." });
+        if (!receiptResults || receiptResults.length === 0) {
+          console.log("No receipts found for studentID:", studentID);
+          return res.status(404).json({ success: false, message: "No receipts found for this student." });
         }
 
-        const receipt = receiptResult[0];
-        console.log("Fetched receipt:", receipt);
-
-        // Step 4: Fetch the amount paid from the fees table (just the Amount_Paid for the student)
-        const feeQuery = `SELECT AmountPaid FROM fees WHERE StudentID = ? LIMIT 1`;
-
-        db.query(feeQuery, [studentID], (err, feeResult) => {
-          if (err) {
-            console.error("Error fetching fee details:", err);
-            return res.status(500).json({ success: false, message: "Server error. Please try again later." });
-          }
-
-          if (!feeResult || feeResult.length === 0) {
-            console.log("No payment found for studentID:", studentID);
-            return res.status(404).json({ success: false, message: "No payment record found for this student." });
-          }
-          // console.log('pesa za fees',feeResult)
-          const totalPaid = feeResult[0].AmountPaid;
-          console.log("Fetched totalPaid:", totalPaid);
-
-          return res.status(200).json({
-            success: true,
-            receiptNumber: receipt.receipt_number,
-            referenceNumber: receipt.reference_number,
-            totalPaid: totalPaid, // Just the Amount_Paid for the student
-            studentName: studentName, // Include student's full name
-            schoolName: schoolName, // Include school name
-          });
+        return res.status(200).json({
+          success: true,
+          studentName: studentName,
+          schoolName: schoolName,
+          receipts: receiptResults, // Send an array of all receipts
         });
       });
     });
   });
 });
+
+
+// TIMETABLE
+import moment from "moment"; // Ensure moment.js is installed
+
+app.get("/api/teacher/upcoming-classes", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user?.userId; // Extract User_ID from JWT
+    console.log("Extracted userId from JWT:", userId);
+
+    if (!userId) {
+      console.error("User ID is undefined. Check JWT payload.");
+      return res.status(400).json({ error: "Invalid user ID" });
+    }
+
+    // Step 1: Get teacher details (ID & Name)
+    db.query(
+      "SELECT Teacher_ID, CONCAT(First_Name, ' ', Last_Name) AS TeacherName FROM teacher WHERE User_ID = ?",
+      [userId],
+      (err, teacherResult) => {
+        if (err) {
+          console.error("Database error:", err);
+          return res.status(500).json({ error: "Database error" });
+        }
+
+        if (!teacherResult.length) {
+          console.error("No teacher found for user ID:", userId);
+          return res.status(404).json({ error: "Teacher not found" });
+        }
+
+        const teacherID = teacherResult[0].Teacher_ID;
+        const teacherName = teacherResult[0].TeacherName;
+        console.log("Extracted Teacher_ID:", teacherID);
+        console.log("Extracted Teacher Name:", teacherName);
+
+        // Step 2: Fetch timetable with weekdays
+        db.query(
+          `SELECT 
+              subject, 
+              grade_level, 
+              weekday, 
+              start_time, 
+              end_time, 
+              location 
+           FROM timetable 
+           WHERE Teacher_ID = ? 
+           ORDER BY FIELD(weekday, 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'), start_time ASC`,
+          [teacherID],
+          (err, classResults) => {
+            if (err) {
+              console.error("Database error:", err);
+              return res.status(500).json({ error: "Database error" });
+            }
+
+            console.log("Raw Upcoming Classes:", classResults);
+
+            // Get the start of the **current** week dynamically
+            const today = moment();
+            const startOfWeek = today.clone().startOf("isoWeek"); // Always get Monday of the **current** week
+
+            const weekdayMap = {
+              Monday: startOfWeek.clone().add(0, "days"),
+              Tuesday: startOfWeek.clone().add(1, "days"),
+              Wednesday: startOfWeek.clone().add(2, "days"),
+              Thursday: startOfWeek.clone().add(3, "days"),
+              Friday: startOfWeek.clone().add(4, "days"),
+              Saturday: startOfWeek.clone().add(5, "days"),
+              Sunday: startOfWeek.clone().add(6, "days"),
+            };
+
+            // Formatting data for lesson-schedule-react
+            const formattedClasses = classResults.map((classItem) => {
+              // Assign the correct upcoming **week’s** date based on today's date
+              let lessonDate = weekdayMap[classItem.weekday];
+
+              // If the class was **in the past**, move it to the next week's occurrence
+              if (lessonDate.isBefore(today, "day")) {
+                lessonDate = lessonDate.add(7, "days"); // Move to next week's same weekday
+              }
+
+              return {
+                lessonPair: {
+                  start_time: classItem.start_time,
+                  end_time: classItem.end_time,
+                },
+                lesson_date: Math.floor(lessonDate.toDate().getTime() / 1000), // Convert to Unix timestamp
+                auditorium: { name: classItem.location },
+                subject: { name: classItem.subject },
+                trainingType: { name: classItem.grade_level }, // Use grade level instead of "Class"
+                employee: { name: teacherName }, // Assign actual teacher name
+              };
+            });
+
+            console.log("Formatted Upcoming Classes:", formattedClasses);
+            res.json(formattedClasses);
+          }
+        );
+      }
+    );
+  } catch (error) {
+    console.error("Error fetching upcoming classes:", error);
+    res.status(500).json({ error: "Failed to fetch upcoming classes" });
+  }
+});
+//SUBJECTS
+app.get("/api/subjects", (req, res) => {
+  db.query("SELECT * FROM subjects", (error, results) => {
+    if (error) {
+      console.error("Error fetching subjects:", error);
+      return res.status(500).json({ error: "Internal server error" });
+    }
+    res.json(results);
+  });
+});
+
+//Assign subject
+app.post("/api/admin/assign-subject", (req, res) => {
+  const { teacher_id, subject, grade_level, weekday, start_time, end_time, location } = req.body;
+
+  // Validate that all required fields are provided
+  if (!teacher_id || !subject || !grade_level || !weekday || !start_time || !end_time || !location) {
+    return res.status(400).json({ error: "All fields are required" });
+  }
+
+  // Insert into the timetable table
+  db.query(
+    "INSERT INTO timetable (Teacher_ID, subject, grade_level, weekday, start_time, end_time, location) VALUES (?, ?, ?, ?, ?, ?, ?)",
+    [teacher_id, subject, grade_level, weekday, start_time, end_time, location],
+    (err, result) => {
+      if (err) {
+        console.error("Database error:", err);
+        return res.status(500).json({ error: "Database error" });
+      }
+      res.json({ message: "Lesson assigned successfully" });
+    }
+  );
+});
+
+
+
+
+
+///////////////////Claa management
+app.get("/api/teacher/subjects", authenticateToken, (req, res) => {
+  const userId = req.user?.userId;
+
+  db.query(
+    `SELECT subject, grade_level, start_time, end_time 
+     FROM timetable 
+     WHERE Teacher_ID = (SELECT Teacher_ID FROM teacher WHERE User_ID = ?)`,
+    [userId],
+    (err, results) => {
+      if (err) {
+        console.error("Database error:", err);
+        return res.status(500).json({ error: "Database error" });
+      }
+      res.json(results);
+    }
+  );
+});
+
+
+app.get("/api/teacher/students", authenticateToken, (req, res) => {
+  const { subject } = req.query;
+  const userId = req.user?.userId;
+
+  const query = `
+    SELECT sr.Student_ID, sr.First_Name, sr.Second_Name
+    FROM student_record sr
+    JOIN teacher te ON sr.School_ID = te.School_ID
+    JOIN timetable t ON te.Teacher_ID = t.Teacher_ID
+    WHERE t.subject = ? AND te.User_ID = ? AND sr.Year_Level = t.grade_level
+  `;
+
+  db.query(query, [subject, userId], (err, results) => {
+    if (err) {
+      console.error("Database error:", err);
+      return res.status(500).json({ error: "Database error" });
+    }
+    res.json(results);
+  });
+});
+
+
+app.post("/api/teacher/mark-attendance", authenticateToken, (req, res) => {
+  const { subject, start_time, end_time, attendance } = req.body;
+  const userId = req.user?.userId;
+
+  // Fetch the Teacher_ID using User_ID
+  const teacherQuery = "SELECT Teacher_ID FROM teacher WHERE User_ID = ?";
+
+  db.query(teacherQuery, [userId], (err, results) => {
+    if (err) {
+      console.error("Database error:", err);
+      return res.status(500).json({ error: "Database error while fetching teacher ID" });
+    }
+
+    if (results.length === 0) {
+      return res.status(404).json({ error: "Teacher not found" });
+    }
+
+    const teacherId = results[0].Teacher_ID; // Extract the teacher ID
+
+    // Prepare attendance values
+    const values = Object.entries(attendance).map(([studentId, present]) => [
+      studentId,
+      teacherId,
+      subject,
+      present ? "Present" : "Absent",
+      new Date(),
+      start_time,
+      end_time,
+    ]);
+
+    const attendanceQuery = `
+      INSERT INTO attendance (Student_ID, Teacher_ID, Subject, Status, Lesson_Date, Start_Time, End_Time) 
+      VALUES ?
+    `;
+
+    db.query(attendanceQuery, [values], (err) => {
+      if (err) {
+        console.error("Database error:", err);
+        return res.status(500).json({ error: "Database error while inserting attendance" });
+      }
+      res.json({ message: "Attendance marked successfully" });
+    });
+  });
+});
+
+
 
 
 

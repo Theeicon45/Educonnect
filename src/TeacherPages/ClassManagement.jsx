@@ -1,9 +1,10 @@
 import React from 'react'
+import Attendance from '../TeacherComponents/Attendance'
 
 const ClassManagement = () => {
   return (
-    <div>
-      
+    <div className=''>
+      <Attendance/>
     </div>
   )
 }

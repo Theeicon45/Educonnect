@@ -76,7 +76,7 @@ INSERT INTO `announcements` (`Announcement_ID`, `Title`, `Content`, `Target_Audi
 
 CREATE TABLE `application` (
   `Application_ID` int(20) NOT NULL,
-  `Student_ID` int(20) DEFAULT NULL,
+ 
   `School_ID` int(20) NOT NULL,
   `Applicant_Name` varchar(100) NOT NULL,
   `Second_Name` varchar(100) DEFAULT NULL,
