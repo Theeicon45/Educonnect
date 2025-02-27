@@ -1,9 +1,10 @@
 import React from 'react'
+import CommunicationSec from '../Components/CommunicationSec'
 
 const CommunicationHub = () => {
   return (
     <div>
-      CommunicatioHub
+      <CommunicationSec/>
     </div>
   )
 }

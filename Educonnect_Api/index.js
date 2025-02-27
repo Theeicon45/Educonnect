@@ -2954,6 +2954,307 @@ app.get("/api/teacher/students", authenticateToken, (req, res) => {
   });
 });
 
+ ////////Gradebook 
+ // 📌 POST /grades → Add or Update Grades
+ app.post("/grades", authenticateToken, (req, res) => {
+  const { subject, term, year, grades } = req.body;
+  const userId = req.user?.userId;
+
+  console.log("🔹 Incoming request data:", req.body);
+  console.log("🔹 Extracted userId from token:", userId);
+
+  // 🔹 Step 1: Extract Subject Name (Remove Grade Level)
+  const cleanSubject = subject.replace(/\(.*?\)/g, "").trim(); // Removes anything in parentheses
+  console.log(`✅ Extracted clean subject name: ${cleanSubject}`);
+
+  // 🔹 Step 2: Fetch `teacher_id` using `userId`
+  db.query(
+    "SELECT Teacher_ID FROM teacher WHERE User_ID = ?",
+    [userId],
+    (err, teacherResults) => {
+      if (err) {
+        console.error("❌ Error fetching teacher_id:", err.message);
+        return res.status(500).json({ error: err.message });
+      }
+
+      if (teacherResults.length === 0) {
+        console.warn("⚠️ No teacher found for userId:", userId);
+        return res.status(404).json({ error: "Teacher not found" });
+      }
+
+      const teacher_id = teacherResults[0].Teacher_ID;
+      console.log(`✅ Found teacher_id: ${teacher_id} for userId: ${userId}`);
+
+      // 🔹 Step 3: Fetch `subject_id` using the extracted subject name
+      db.query(
+        "SELECT id FROM subjects WHERE name = ?",
+        [cleanSubject],
+        (err, subjectResults) => {
+          if (err) {
+            console.error("❌ Error fetching subject_id:", err.message);
+            return res.status(500).json({ error: err.message });
+          }
+
+          if (subjectResults.length === 0) {
+            console.warn("⚠️ Subject not found:", cleanSubject);
+            return res.status(404).json({ error: "Subject not found" });
+          }
+
+          const subject_id = subjectResults[0].id;
+          console.log(`✅ Found subject_id: ${subject_id} for subject: ${cleanSubject}`);
+
+          // 🔹 Step 4: Insert or Update Grades
+          const queries = grades.map(({ student_id, cat1, cat2, endterm_exam }) => {
+            console.log(`📌 Processing student_id: ${student_id}, Subject: ${subject_id}`);
+
+            return new Promise((resolve, reject) => {
+              db.query(
+                `SELECT id FROM grades WHERE student_id = ? AND subject_id = ? AND term = ? AND year = ?`,
+                [student_id, subject_id, term, year],
+                (checkErr, checkResults) => {
+                  if (checkErr) {
+                    console.error("❌ Error checking existing grade:", checkErr.message);
+                    return reject(checkErr);
+                  }
+
+                  if (checkResults.length > 0) {
+                    // 🔄 Update Existing Grade
+                    console.log(`🔄 Updating existing grade for Student ${student_id}, Subject ${subject_id}`);
+                    db.query(
+                      `UPDATE grades 
+                       SET cat1 = ?, cat2 = ?, endterm_exam = ?, updated_at = NOW()
+                       WHERE student_id = ? AND subject_id = ? AND term = ? AND year = ?`,
+                      [cat1, cat2, endterm_exam, student_id, subject_id, term, year],
+                      (updateErr) => {
+                        if (updateErr) {
+                          console.error("❌ Error updating grade:", updateErr.message);
+                          return reject(updateErr);
+                        }
+                        console.log(`✅ Grade updated for Student ${student_id}`);
+                        resolve();
+                      }
+                    );
+                  } else {
+                    // ➕ Insert New Grade
+                    console.log(`➕ Inserting new grade for Student ${student_id}, Subject ${subject_id}`);
+                    db.query(
+                      `INSERT INTO grades (Student_ID, subject_id, Teacher_ID, cat1, cat2, endterm_exam, term, year)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+                      [student_id, subject_id, teacher_id, cat1, cat2, endterm_exam, term, year],
+                      (insertErr) => {
+                        if (insertErr) {
+                          console.error("❌ Error inserting new grade:", insertErr.message);
+                          return reject(insertErr);
+                        }
+                        console.log(`✅ Grade inserted for Student ${student_id}`);
+                        resolve();
+                      }
+                    );
+                  }
+                }
+              );
+            });
+          });
+
+          // 🔹 Step 5: Wait for all queries to complete, then send response
+          Promise.all(queries)
+            .then(() => {
+              console.log("✅ All grades updated successfully");
+              res.json({ message: "Grades updated successfully" });
+            })
+            .catch((err) => {
+              console.error("❌ Error updating grades:", err.message);
+              res.status(500).json({ error: err.message });
+            });
+        }
+      );
+    }
+  );
+});
+
+
+
+
+
+
+
+// 📌 GET /grades/:subject_id → Get Grades for a Subject
+app.get("/grades/student/:student_id", (req, res) => {
+  const { student_id } = req.params;
+
+  console.log(`🔹 Fetching grades for student ${student_id}`);
+
+  db.query(
+    `SELECT g.student_id, s.name AS student_name, g.subject_id, sub.name AS subject, 
+            g.cat1, g.cat2, g.endterm_exam, g.final_score, g.final_grade
+     FROM grades g 
+     JOIN student_record s ON g.student_id = s.id
+     JOIN subjects sub ON g.subject_id = sub.id
+     WHERE g.student_id = ?`,
+    [student_id],
+    (err, results) => {
+      if (err) {
+        console.error("❌ Error fetching student grades:", err.message);
+        return res.status(500).json({ error: err.message });
+      }
+
+      if (results.length === 0) {
+        console.warn(`⚠️ No grades found for student ${student_id}`);
+        return res.status(404).json({ error: "No grades found" });
+      }
+
+      console.log("✅ Student grades fetched successfully:", results);
+      res.json(results);
+    }
+  );
+});
+
+
+// 📌 GET /grades/student/:student_id → Get a Student's Grades
+app.get("/grades/fetch/:student_id", authenticateToken, (req, res) => {
+  const { student_id } = req.params;
+
+  console.log(`🔹 Fetching grades for student ${student_id}`);
+
+  db.query(
+    `SELECT g.subject_id, sub.name AS subject, g.cat1, g.cat2, g.endterm_exam, g.final_score, g.final_grade
+     FROM grades g
+     JOIN subjects sub ON g.subject_id = sub.id
+     WHERE g.student_id = ?`,
+    [student_id],
+    (err, results) => {
+      if (err) {
+        console.error("❌ Error fetching student grades:", err.message);
+        return res.status(500).json({ error: err.message });
+      }
+
+      if (results.length === 0) {
+        console.warn(`⚠️ No grades found for student ${student_id}`);
+        return res.status(404).json({ error: "No grades found" });
+      }
+
+      console.log("✅ Grades fetched successfully:", results);
+      res.json(results);
+    }
+  );
+});
+
+
+
+
+
+app.get("/api/fetch/students", authenticateToken, (req, res) => { 
+  const { subject, grade_level } = req.query;
+
+  // console.log("🔹 Full req.user object:", req.user);
+
+  const userId = req.user?.userId; // Extracted from JWT
+  // console.log("🔹 Extracted userId:", userId);
+
+  if (!userId) {
+    // console.error("❌ Missing or invalid userId in req.user");
+    return res.status(401).json({ error: "Unauthorized: Invalid userId" });
+  }
+
+  if (!subject || !grade_level) {
+    // console.error("❌ Missing subject or grade_level");
+    return res.status(400).json({ error: "Subject and grade level are required" });
+  }
+
+  // 🔹 Step 1: Get Teacher's School ID
+  db.query(
+    "SELECT School_ID FROM teacher WHERE User_ID = ?",
+    [userId],
+    (err, teacherResults) => {
+      if (err) {
+        // console.error("❌ Error fetching teacher's School_ID:", err.message);
+        return res.status(500).json({ error: err.message });
+      }
+
+      if (teacherResults.length === 0) {
+        // console.warn("⚠️ No teacher found for User_ID:", userId);
+        return res.status(404).json({ error: "Teacher not found" });
+      }
+
+      const schoolId = teacherResults[0].School_ID;
+      // console.log("✅ Teacher's School_ID:", schoolId);
+
+      // 🔹 Step 2: Verify Subject & Grade Level in `timetable` (Using Subject Name)
+      db.query(
+        `SELECT id FROM timetable WHERE subject = ? AND grade_level = ? `,
+        [subject, grade_level],
+        (err, timetableResults) => {
+          if (err) {
+            // console.error("❌ Error checking timetable:", err.message);
+            return res.status(500).json({ error: err.message });
+          }
+
+          if (timetableResults.length === 0) {
+            // console.warn("⚠️ Subject not assigned for grade level in timetable:", { subject, grade_level, schoolId });
+            return res.status(404).json({ error: "Subject not assigned for this grade level" });
+          }
+
+          // console.log("✅ Grade Level & Subject Verified in Timetable");
+
+          // 🔹 Step 3: Fetch Students from `student_record`
+          db.query(
+            `SELECT sr.Student_ID AS Student_ID, sr.First_Name, sr.Second_Name, 
+                    g.cat1, g.cat2, g.endterm_exam 
+             FROM student_record sr
+             LEFT JOIN grades g ON sr.Student_ID = g.student_id AND g.subject_id = (
+                 SELECT id FROM subjects WHERE name = ?
+             )
+             WHERE sr.Year_level = ? AND sr.School_ID = ?`,
+            [subject, grade_level, schoolId],
+            (err, studentResults) => {
+              if (err) {
+                // console.error("❌ Error fetching students:", err.message);
+                return res.status(500).json({ error: err.message });
+              }
+
+              // console.log("✅ Students fetched:", studentResults.length);
+              res.json(studentResults);
+            }
+          );
+        }
+      );
+    }
+  );
+});
+
+
+
+
+
+
+
+// 📌 POST /grades/upload → Bulk Upload Grades via CSV
+const storage = multer.memoryStorage();
+const uploadcsv = multer({ storage });
+
+app.post("/grades/uploadcsv", uploadcsv.single("file"), (req, res) => {
+  const fileBuffer = req.file.buffer.toString("utf8");
+  const rows = fileBuffer.split("\n").slice(1); // Skip header row
+
+  rows.forEach((row) => {
+    const [student_id, subject_id, teacher_id, cat1, cat2, endterm_exam, term, year] = row.split(",");
+
+    db.query(
+      `INSERT INTO grades (Student_ID, subject_id, Teacher_ID, cat1, cat2, endterm_exam, term, year)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE cat1=?, cat2=?, endterm_exam=?`,
+      [
+        student_id, subject_id, teacher_id, cat1, cat2, endterm_exam, term, year,
+        cat1, cat2, endterm_exam
+      ],
+      (err) => {
+        if (err) return res.status(500).json({ error: err.message });
+      }
+    );
+  });
+
+  res.json({ message: "CSV uploaded successfully" });
+});
 
 app.post("/api/teacher/mark-attendance", authenticateToken, (req, res) => {
   const { subject, start_time, end_time, attendance } = req.body;
@@ -2999,7 +3300,6 @@ app.post("/api/teacher/mark-attendance", authenticateToken, (req, res) => {
     });
   });
 });
-
 
 
 
