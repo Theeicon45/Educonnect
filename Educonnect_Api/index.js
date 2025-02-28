@@ -3302,7 +3302,188 @@ app.post("/api/teacher/mark-attendance", authenticateToken, (req, res) => {
 });
 
 
+//Chats
 
+// Fetch user chats
+app.get("/chats", authenticateToken, (req, res) => {
+  const userId = req.user?.userId; // Get the user ID from the authenticated token
+  // console.log("Received request to fetch chats for userId:", userId); // Log user ID
+
+  if (!userId) {
+    // console.log("Error: User not authenticated.");
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+
+  const query = `
+    SELECT c.id, c.participant1_id, c.participant2_id, c.last_updated, 
+      CASE 
+        WHEN c.participant1_id = ? THEN uc2.Username
+        ELSE uc1.Username
+      END AS participant_name,
+      m.message AS last_message
+    FROM chats c
+    JOIN user_credentials uc1 ON c.participant1_id = uc1.User_ID
+    JOIN user_credentials uc2 ON c.participant2_id = uc2.User_ID
+    LEFT JOIN messages m ON c.id = m.chat_id 
+      AND m.timestamp = (
+        SELECT MAX(timestamp) FROM messages WHERE chat_id = c.id
+      )
+    WHERE c.participant1_id = ? OR c.participant2_id = ?
+    ORDER BY c.last_updated DESC
+  `;
+
+  db.query(query, [userId, userId, userId], (err, chats) => {
+    if (err) {
+      console.error("Error fetching chats:", err.message);
+      return res.status(500).json({ error: err.message });
+    }
+
+    // console.log("Chats fetched from database:", chats); // Log fetched chats
+    res.json(chats); // Respond with the fetched chats
+  });
+});
+
+
+
+// Fetch messages in a chat
+app.get("/chats/:chat_id/messages", (req, res) => {
+  const { chat_id } = req.params;
+  // console.log("Received request for messages in chat:", chat_id);
+
+  db.query(
+    `SELECT * FROM messages WHERE chat_id = ? ORDER BY timestamp ASC`,
+    [chat_id],
+    (err, messages) => {
+      if (err) {
+        console.error("Error fetching messages:", err.message);
+        return res.status(500).json({ error: err.message });
+      }
+
+      // console.log("Messages fetched from database:", messages);
+      res.json(messages);
+    }
+  );
+});
+
+
+// Send a message
+app.post("/chats/:chat_id/messages", authenticateToken, (req, res) => {
+  const { chat_id } = req.params;
+  const { message } = req.body; // Removed sender_id from body
+  const userId = req.user?.userId; // Get userId from token
+
+  // Check if message is provided
+  if (!message) {
+    return res.status(400).json({ error: "Message is required" });
+  }
+
+  // Insert message into the messages table
+  db.query(
+    `INSERT INTO messages (chat_id, sender_id, message) VALUES (?, ?, ?)`,
+    [chat_id, userId, message],
+    (err) => {
+      if (err) {
+        console.error("Error inserting message:", err.message);
+        return res.status(500).json({ error: err.message });
+      }
+
+      // Update the last message in the chats table
+      db.query(
+        `UPDATE chats SET last_message = ?, last_updated = NOW() WHERE id = ?`,
+        [message, chat_id],
+        (err) => {
+          if (err) {
+            console.error("Error updating chat:", err.message);
+            return res.status(500).json({ error: err.message });
+          }
+
+          // Respond with success
+          res.json({ success: true, message: "Message sent successfully" });
+        }
+      );
+    }
+  );
+});
+
+
+
+// WebSocket for real-time messages
+
+
+
+
+//New chat
+app.post("/newchats", authenticateToken, (req, res) => {
+  const userId = req.user?.userId; // Get userId from token
+  const { user2 } = req.body; // user2 comes from the body
+
+  console.log("Received request to create chat between:", { userId, user2 });
+
+  // Check if a chat already exists between these users
+  db.query(
+    "SELECT id FROM chats WHERE (participant1_id = ? AND participant2_id = ?) OR (participant1_id = ? AND participant2_id = ?)",
+    [userId, user2, user2, userId], // Use `userId` for participant1_id
+    (err, existingChat) => {
+      if (err) {
+        console.error("Error checking existing chat:", err);
+        return res.status(500).json({ error: "Internal server error" });
+      }
+
+      console.log("Existing chat check result:", existingChat);
+
+      if (existingChat.length > 0) {
+        console.log("Chat already exists:", existingChat[0]);
+        return res.json(existingChat[0]); // Return existing chat
+      }
+
+      // Create a new chat session in the chats table
+      db.query(
+        "INSERT INTO chats (participant1_id, participant2_id) VALUES (?, ?)",
+        [userId, user2], // Insert chat with userId as participant1
+        (err, result) => {
+          if (err) {
+            console.error("Error creating chat:", err);
+            return res.status(500).json({ error: "Internal server error" });
+          }
+
+          console.log("New chat created with ID:", result.insertId);
+          res.json({ id: result.insertId, user1: userId, user2, messages: [] });
+        }
+      );
+    }
+  );
+});
+
+
+
+
+app.get("/users", (req, res) => {
+  const { role } = req.query;
+
+  // Debug: Log the received role parameter
+  console.log("Received role query param:", role);
+
+  if (!role) {
+    return res.status(400).json({ error: "Role parameter is required" });
+  }
+
+  const roles = role.split(","); // Convert role query param to an array
+
+  // Debug: Log the processed roles array
+  console.log("Processed roles array:", roles);
+
+  db.query("SELECT User_ID, Username FROM user_credentials WHERE role IN (?)", [roles], (err, users) => {
+    if (err) {
+      console.error("Error fetching users:", err);
+      return res.status(500).json({ error: "Internal server error" });
+    }
+
+    // Debug: Log the retrieved users
+    console.log("Fetched users:", users);
+
+    res.json(users);
+  });
+});
 
 
 
