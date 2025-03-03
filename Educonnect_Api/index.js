@@ -9,7 +9,6 @@ import multer from "multer";
 import path from "path";
 import { fileURLToPath } from "url";
 import fs from "fs";
-import updateTeacherProfileAPI from "./update-teacher-profile.js";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -3364,6 +3363,7 @@ app.get("/chats/:chat_id/messages", (req, res) => {
     }
   );
 });
+
 
 
 // Send a message
