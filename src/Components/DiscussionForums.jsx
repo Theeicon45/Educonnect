@@ -273,7 +273,7 @@ const DiscussionForums = () => {
     const formValues = threadFormValues[forumId] || { title: "", content: "" };
 
     return (
-      <div>
+      <div className="p-4">
         <Input
           placeholder="Thread Title"
           value={formValues.title}
@@ -349,8 +349,8 @@ const DiscussionForums = () => {
   );
   
   return (
-    <div>
-      <h1>Discussion Forums</h1>
+    <div className="p-4 mt-4 ">
+      <h1 className="font-semibold text-2xl">Discussion Forums</h1>
 
       {/* Forums Table */}
       <Table

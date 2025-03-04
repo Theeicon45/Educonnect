@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import AnnouncementManager from "../Components/AnnouncementManager";
 import DiscussionForums from "../Components/DiscussionForums";
 import EventManager from "../Components/EventManager";
+import CommunicationSec from "../Components/CommunicationSec";
 
 const CommunicationCenter = () => {
    const navigate = useNavigate();
@@ -29,7 +30,7 @@ const CommunicationCenter = () => {
   
   return (
     <div className="">
-      <div className="flex items-center w-full">
+      <div className=" p-4 flex items-center w-full">
         {/*Left */}
         <div className=" w-1/2">
           <AnnouncementManager />
@@ -39,6 +40,7 @@ const CommunicationCenter = () => {
           <EventManager />
         </div>
       </div>
+      <CommunicationSec/>
       <DiscussionForums/>
     </div>
   );

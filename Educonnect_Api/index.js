@@ -1557,10 +1557,10 @@ app.post("/api/non-teaching-staff", (req, res) => {
 
             const schoolID = schoolResults[0].School_ID;
 
-            // Insert non-teaching staff data into the non_teaching_staff table without User_ID
+            // Insert non-teaching staff data into the non_teaching_staff table with Hire_Date as the submission date
             const insertNonTeachingStaffSQL = `
-            INSERT INTO non_teaching_staff (First_Name, Last_Name, Position, Contact_Info, Department, School_ID, Created_At)
-            VALUES (?, ?, ?, ?, ?, ?, NOW())
+            INSERT INTO non_teaching_staff (First_Name, Last_Name, Position, Contact_Info, Department, School_ID, Hire_Date, Created_At)
+            VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())
           `;
             const nonTeachingStaffValues = [
               First_Name,
@@ -1597,6 +1597,7 @@ app.post("/api/non-teaching-staff", (req, res) => {
     });
   });
 });
+
 
 // Usercards daynamics////////////////////
 app.get("/api/student-count", (req, res) => {
@@ -3485,7 +3486,200 @@ app.get("/users", (req, res) => {
   });
 });
 
+// Leave Application
+app.post("/apply-leave", authenticateToken, (req, res) => {
+  console.log("Received leave application request:", req.body);
 
+  const userId = req.user?.userId; // Extracted from token
+  if (!userId) {
+    return res.status(401).json({ message: "Unauthorized: Invalid token" });
+  }
+
+  const { leave_type, reason } = req.body;
+  if (!leave_type || !reason) {
+    console.log("Missing fields in request");
+    return res.status(400).json({ message: "All fields are required" });
+  }
+
+  const sql = `INSERT INTO leave_applications (User_ID, leave_type, reason) VALUES (?, ?, ?)`;
+  const values = [userId, leave_type, reason];
+
+  console.log("Executing SQL:", sql, values);
+
+  db.query(sql, values, (err, result) => {
+    if (err) {
+      console.error("Database error:", err);
+      return res.status(500).json({ message: "Database error", error: err });
+    }
+    console.log("Leave application submitted, ID:", result.insertId);
+    res.status(201).json({ message: "Leave application submitted", id: result.insertId });
+  });
+});
+// FetchLeave Applications
+app.get("/leave-applications", authenticateToken, (req, res) => {
+  const userId = req.user?.userId;
+
+  const sql = `
+    SELECT leave_type, reason, status, applied_at
+    FROM leave_applications
+    WHERE User_ID = ? 
+    ORDER BY applied_at DESC`;
+
+  db.query(sql, [userId], (err, results) => {
+    if (err) {
+      console.error("Database error:", err);
+      return res.status(500).json({ message: "Database error", error: err });
+    }
+    res.json(results);
+  });
+});
+
+// Admin leave handling
+app.get("/admin/leave-requests", authenticateToken, (req, res) => {
+  const userRole = req.user?.role; // Ensure the role is retrieved from the token
+
+  if (userRole.toLowerCase() !== "admin") {
+    return res.status(403).json({ message: "Access denied. Admins only." });
+  }
+
+  const sql = `
+    SELECT la.id, u.username AS teacher, la.leave_type, la.reason, la.status, la.applied_at 
+    FROM leave_applications la
+    JOIN user_credentials u ON la.User_ID = u.user_id
+    ORDER BY FIELD(la.status, 'Pending', 'Approved', 'Rejected'), la.applied_at DESC`;
+
+  db.query(sql, (err, results) => {
+    if (err) {
+      console.error("Database error:", err);
+      return res.status(500).json({ message: "Database error", error: err });
+    }
+    res.json(results);
+  });
+});
+
+app.put("/admin/leave-requests/:id", authenticateToken, (req, res) => {
+  const userRole = req.user?.role;
+  const reviewedBy = req.user?.userId; // Admin's ID
+  const reviewedAt = new Date(); // Current timestamp
+
+  // console.log("User Role:", userRole);
+  // console.log("Reviewed By (Admin ID):", reviewedBy);
+
+  if (userRole.toLowerCase() !== "admin") {
+    return res.status(403).json({ message: "Access denied. Admins only." });
+  }
+
+  const { status } = req.body;
+  const { id } = req.params; // Leave request ID
+
+  // console.log("Received Leave Request ID:", id);
+  // console.log("Received Status Update:", status);
+
+  if (!["Approved", "Rejected"].includes(status)) {
+    return res.status(400).json({ message: "Invalid status update." });
+  }
+
+  const sql = `
+    UPDATE leave_applications 
+    SET status = ?, reviewed_by = ?, reviewed_at = ? 
+    WHERE id = ?
+  `;
+
+  db.query(sql, [status, reviewedBy, reviewedAt, id], (err, result) => {
+    if (err) {
+      console.error("Database error while updating leave request:", err);
+      return res.status(500).json({ message: "Database error", error: err });
+    }
+
+    console.log("Leave Request Update Result:", result);
+    if (result.affectedRows === 0) {
+      // console.log("Leave request not found for ID:", id);
+      return res.status(404).json({ message: "Leave request not found." });
+    }
+
+    // If leave is approved, update the teacher's status
+    if (status === "Approved") {
+      const getUserIdSQL = `
+        SELECT user_id FROM leave_applications WHERE id = ?
+      `;
+
+      // console.log("Fetching user_id for Leave Request ID:", id);
+      db.query(getUserIdSQL, [id], (err, userResult) => {
+        if (err) {
+          console.error("Error fetching user ID:", err);
+          return res.status(500).json({ message: "Error fetching user ID." });
+        }
+
+        if (userResult.length === 0) {
+          // console.log("No user found for Leave Request ID:", id);
+          return res.status(404).json({ message: "User not found for leave request." });
+        }
+
+        const userId = userResult[0].user_id;
+        // console.log("Fetched user_id:", userId);
+
+        // Update teacher's status where user_id matches
+        const updateTeacherStatusSQL = `
+          UPDATE teacher 
+          SET status = 'On Leave' 
+          WHERE user_id = ?
+        `;
+
+        console.log("Updating teacher status to 'On Leave' for user_id:", userId);
+        db.query(updateTeacherStatusSQL, [userId], (err, teacherResult) => {
+          if (err) {
+            console.error("Error updating teacher status:", err);
+            return res.status(500).json({ message: "Error updating teacher status." });
+          }
+
+          // console.log("Teacher status updated successfully for user_id:", userId);
+          res.json({
+            message: `Leave request ${status.toLowerCase()} and teacher marked as 'On Leave' successfully.`,
+          });
+        });
+      });
+    } else {
+      console.log("Leave request marked as", status, "without updating teacher status.");
+      res.json({ message: `Leave request ${status.toLowerCase()} successfully.` });
+    }
+  });
+});
+
+
+// Employee Card
+app.get("/api/employees/stats", (req, res) => {
+  db.query("SELECT COUNT(*) AS count FROM teacher", (err, teachers) => {
+    if (err) {
+      console.error("Error fetching teachers:", err);
+      return res.status(500).json({ error: "Internal Server Error" });
+    }
+
+    db.query("SELECT COUNT(*) AS count FROM non_teaching_staff", (err, staff) => {
+      if (err) {
+        console.error("Error fetching staff:", err);
+        return res.status(500).json({ error: "Internal Server Error" });
+      }
+
+      db.query(
+        `SELECT COUNT(*) AS count 
+         FROM (SELECT hire_date FROM teacher UNION ALL SELECT hire_date FROM non_teaching_staff) AS all_employees
+         WHERE hire_date >= DATE_SUB(NOW(), INTERVAL 3 MONTH)`,
+        (err, newEmployees) => {
+          if (err) {
+            console.error("Error fetching new employees:", err);
+            return res.status(500).json({ error: "Internal Server Error" });
+          }
+
+          res.json({
+            totalTeachers: teachers[0].count,
+            totalEmployees: teachers[0].count + staff[0].count,
+            newEmployees: newEmployees[0].count,
+          });
+        }
+      );
+    });
+  });
+});
 
 
 app.listen(PORT, () => {

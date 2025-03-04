@@ -1,8 +1,9 @@
 import React from "react";
+import SCommunicationSec from "../StudentComponents/ScommunicationSec";
 
 const SCommunicationHub = () => {
   return <div>
-    Student Communicatoin
+    <SCommunicationSec/>
   </div>;
 };
 
