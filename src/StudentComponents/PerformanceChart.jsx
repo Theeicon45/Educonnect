@@ -1,61 +1,47 @@
-import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, Tooltip } from 'recharts';
-
-const data = [
-  {
-    subject: 'Math',
-    A: 120,
-    B: 110,
-    fullMark: 150,
-  },
-  {
-    subject: 'Chinese',
-    A: 98,
-    B: 130,
-    fullMark: 150,
-  },
-  {
-    subject: 'English',
-    A: 86,
-    B: 130,
-    fullMark: 150,
-  },
-  {
-    subject: 'Geography',
-    A: 99,
-    B: 100,
-    fullMark: 150,
-  },
-  {
-    subject: 'Physics',
-    A: 85,
-    B: 90,
-    fullMark: 150,
-  },
-  {
-    subject: 'History',
-    A: 65,
-    B: 85,
-    fullMark: 150,
-  },
-];
+import { useState, useEffect } from "react";
+import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, Tooltip } from "recharts";
 
 const PerformanceChart = () => {
-    return (
-      <div className="w-full h-80"> {/* Ensure a defined height */}
+  const [data, setData] = useState([]);
+
+  useEffect(() => {
+    const fetchPerformanceData = async () => {
+      try {
+        const response = await fetch("http://localhost:3000/api/performance", {
+          headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+        });
+        const result = await response.json();
+        console.log(result)
+        if (result.success) {
+          setData(result.data);
+        } else {
+          console.error("No performance data found");
+        }
+      } catch (error) {
+        console.error("Error fetching performance data:", error);
+      }
+    };
+
+    fetchPerformanceData();
+  }, []);
+
+  return (
+    <div className="w-full h-80">
+      {data.length > 0 ? (
         <ResponsiveContainer width="100%" height="100%">
           <RadarChart cx="50%" cy="50%" outerRadius="80%" data={data}>
             <PolarGrid />
-            <Tooltip
-              contentStyle={{ borderRadius: "10px", borderColor: "lightgray" }}
-            />
+            <Tooltip contentStyle={{ borderRadius: "10px", borderColor: "lightgray" }} />
             <PolarAngleAxis dataKey="subject" />
             <PolarRadiusAxis />
-            <Radar name="Mike" dataKey="A" stroke="#8884d8" fill="#8884d8" fillOpacity={0.6} />
+            <Radar name="Performance" dataKey="A" stroke="#8884d8" fill="#8884d8" fillOpacity={0.6} />
           </RadarChart>
         </ResponsiveContainer>
-      </div>
-    );
-  };
-  
-  export default PerformanceChart;
-  
+      ) : (
+        <p className="text-center text-gray-500">No performance data available.</p>
+      )}
+    </div>
+  );
+};
+
+export default PerformanceChart;

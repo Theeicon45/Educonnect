@@ -37,9 +37,19 @@ const FeeViewer = () => {
         });
 
         const receiptData = await receiptResponse.json();
-        
+        // console.log("Receipt data", receiptData);
+
         if (receiptData.success) {
-          setAllReceipts(receiptData.receipts);
+          // Attach studentName & schoolName to each receipt
+          const updatedReceipts = receiptData.receipts.map((receipt) => ({
+            ...receipt,
+            studentName: receiptData.studentName,
+            schoolName: receiptData.schoolName,
+            totalPaid: receiptData.totalPaid,
+
+          }));
+
+          setAllReceipts(updatedReceipts);
         }
       } catch (error) {
         console.error("Error fetching receipts:", error);
@@ -94,6 +104,7 @@ const FeeViewer = () => {
         });
 
         const receiptData = await receiptResponse.json();
+
         if (receiptData.success && receiptData.receipts.length > 0) {
           const latestReceipt = receiptData.receipts[0]; // Get the latest receipt
 
@@ -105,13 +116,16 @@ const FeeViewer = () => {
             date: new Date(latestReceipt.date).toLocaleDateString(),
             paymentMethod: latestReceipt.paymentMethod,
             feeType: latestReceipt.feeType,
+            totalPaid: receiptData.totalPaid,
             amountPaid: latestReceipt.amountPaid,
             remainingBalance: latestReceipt.remainingBalance,
           };
 
           // Check if the new receipt is already in the list by receiptNumber to avoid duplicates
           setAllReceipts((prevReceipts) => {
-            const isDuplicate = prevReceipts.some(receipt => receipt.receiptNumber === newReceipt.receiptNumber);
+            const isDuplicate = prevReceipts.some(
+              (receipt) => receipt.receiptNumber === newReceipt.receiptNumber
+            );
             if (isDuplicate) {
               console.log("Duplicate receipt detected, skipping...");
               return prevReceipts; // No need to add this receipt if it's a duplicate

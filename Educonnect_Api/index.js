@@ -2734,43 +2734,63 @@ app.get("/api/receipt", authenticateToken, (req, res) => {
       const schoolName = schoolResult[0].School_Name;
       console.log("Fetched schoolName:", schoolName);
 
-      // Step 3: Fetch all receipts for the student with fee details
-      const receiptQuery = `
-        SELECT 
-          r.receiptNumber,
-          r.referenceNumber,
-          r.date,
-          r.remainingBalance,
-          f.FeeType AS feeType,
-          f.PaymentMethod AS paymentMethod,
-          r.AmountPaid AS amountPaid 
-        FROM receipts r
-        JOIN fees f ON r.Student_ID = f.StudentID
-        WHERE r.Student_ID = ?
-        ORDER BY r.date DESC
+      // Step 3: Fetch the latest total paid amount from the fees table
+      const latestPaidQuery = `
+        SELECT AmountPaid 
+        FROM fees 
+        WHERE StudentID = ? 
+       
       `;
 
-      db.query(receiptQuery, [studentID], (err, receiptResults) => {
+      db.query(latestPaidQuery, [studentID], (err, latestPaidResult) => {
         if (err) {
-          console.error("Error fetching receipts:", err);
+          console.error("Error fetching latest amount paid:", err);
           return res.status(500).json({ success: false, message: "Server error. Please try again later." });
         }
 
-        if (!receiptResults || receiptResults.length === 0) {
-          console.log("No receipts found for studentID:", studentID);
-          return res.status(404).json({ success: false, message: "No receipts found for this student." });
-        }
+        const latestPaid = latestPaidResult.length > 0 ? latestPaidResult[0].AmountPaid : 0;
+        // console.log("Latest Amount Paid:", latestPaid);
 
-        return res.status(200).json({
-          success: true,
-          studentName: studentName,
-          schoolName: schoolName,
-          receipts: receiptResults, // Send an array of all receipts
+        // Step 4: Fetch all receipts for the student with fee details
+        const receiptQuery = `
+          SELECT 
+            r.receiptNumber,
+            r.referenceNumber,
+            r.date,
+            r.remainingBalance,
+            f.FeeType AS feeType,
+            f.PaymentMethod AS paymentMethod,
+            r.AmountPaid AS amountPaid 
+          FROM receipts r
+          JOIN fees f ON r.Student_ID = f.StudentID
+          WHERE r.Student_ID = ?
+          ORDER BY r.date DESC
+        `;
+
+        db.query(receiptQuery, [studentID], (err, receiptResults) => {
+          if (err) {
+            console.error("Error fetching receipts:", err);
+            return res.status(500).json({ success: false, message: "Server error. Please try again later." });
+          }
+
+          if (!receiptResults || receiptResults.length === 0) {
+            console.log("No receipts found for studentID:", studentID);
+            return res.status(404).json({ success: false, message: "No receipts found for this student." });
+          }
+
+          return res.status(200).json({
+            success: true,
+            studentName: studentName,
+            schoolName: schoolName,
+            totalPaid: latestPaid, // Include the latest total paid amount
+            receipts: receiptResults, // Send an array of all receipts
+          });
         });
       });
     });
   });
 });
+
 
 
 // TIMETABLE
@@ -3646,6 +3666,7 @@ app.put("/admin/leave-requests/:id", authenticateToken, (req, res) => {
 });
 
 
+
 // Employee Card
 app.get("/api/employees/stats", (req, res) => {
   db.query("SELECT COUNT(*) AS count FROM teacher", (err, teachers) => {
@@ -3678,6 +3699,111 @@ app.get("/api/employees/stats", (req, res) => {
         }
       );
     });
+  });
+});
+//Grades Fetching
+app.get("/api/performance", authenticateToken, (req, res) => {
+  const userId = req.user?.userId;
+  // console.log("🔍 Fetching performance data for userId:", userId);
+
+  // Step 1: Get Student ID from user ID
+  const studentQuery = `
+    SELECT Student_ID FROM student_record WHERE User_ID = ?
+  `;
+
+  db.query(studentQuery, [userId], (err, studentResult) => {
+    if (err) {
+      // console.error("❌ Error fetching student ID:", err);
+      return res.status(500).json({ success: false, message: "Server error. Please try again later." });
+    }
+
+    // console.log("✅ Student Query Result:", studentResult);
+
+    if (!studentResult || studentResult.length === 0) {
+      // console.log("⚠️ No student record found for User_ID:", userId);
+      return res.status(404).json({ success: false, message: "Student record not found." });
+    }
+
+    const studentID = studentResult[0].Student_ID;
+    // console.log("🎯 Found Student ID:", studentID);
+
+    // Step 2: Fetch performance data (final_score per subject)
+    const performanceQuery = `
+      SELECT s.name AS subject, g.final_score
+      FROM grades g
+      JOIN subjects s ON g.subject_id = s.id
+      WHERE g.Student_ID = ?
+      ORDER BY s.name
+    `;
+
+    db.query(performanceQuery, [studentID], (err, results) => {
+      if (err) {
+        console.error("❌ Error fetching performance data:", err);
+        return res.status(500).json({ success: false, message: "Server error. Please try again later." });
+      }
+
+      // console.log("✅ Performance Query Results:", results);
+
+      if (!results || results.length === 0) {
+        // console.log("⚠️ No performance data found for Student_ID:", studentID);
+        return res.status(404).json({ success: false, message: "No performance data found." });
+      }
+
+      // Format data for the frontend Radar Chart
+      const formattedData = results.map((row) => ({
+        subject: row.subject,
+        A: parseFloat(row.final_score), // Student's score
+        fullMark: 100, // Maximum possible score
+      }));
+
+      // console.log("📊 Formatted Data for Chart:", formattedData);
+
+      res.status(200).json({ success: true, data: formattedData });
+    });
+  });
+});
+
+// Fetch student grades
+app.get("/api/getgrades", authenticateToken, (req, res) => {
+  console.log("Incoming request to /api/getgrades");
+
+  const userId = req.user.userId; // Extract user_id from token
+  console.log("Extracted user ID from token:", userId);
+
+  // Get Student_ID from student records
+  db.query("SELECT Student_ID FROM student_record WHERE User_ID = ?", [userId], (err, studentRows) => {
+    if (err) {
+      console.error("Error fetching student record:", err);
+      return res.status(500).json({ error: "Internal server error" });
+    }
+
+    console.log("Student record query result:", studentRows);
+
+    if (studentRows.length === 0) {
+      console.error("Student not found for user ID:", userId);
+      return res.status(404).json({ error: "Student not found" });
+    }
+
+    const studentId = studentRows[0].Student_ID;
+    console.log("Retrieved Student_ID:", studentId);
+
+    // Fetch grades
+    db.query(
+      `SELECT g.id, s.name AS subject, g.cat1, g.cat2, g.endterm_exam AS endTerm, g.final_score, g.final_grade 
+      FROM grades g
+      JOIN subjects s ON g.subject_id = s.id
+      WHERE g.Student_ID = ?`,
+      [studentId],
+      (err, grades) => {
+        if (err) {
+          console.error("Error fetching grades:", err);
+          return res.status(500).json({ error: "Internal server error" });
+        }
+
+        console.log("Fetched grades for student:", grades);
+        res.json(grades);
+      }
+    );
   });
 });
 
